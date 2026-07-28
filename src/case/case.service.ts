@@ -1,27 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotImplementedException } from '@nestjs/common';
+import { CreateCaseDto } from './dto/create-case.dto';
+import { Case } from './models/case.model';
 
 @Injectable()
 export class CaseService {
-  private readonly cases: { id: number; title: string; description: string }[];
-
-  constructor() {
-    this.cases = [
-      { id: 1, title: 'Case 1', description: 'Description of Case 1' },
-      { id: 2, title: 'Case 2', description: 'Description of Case 2' },
-      { id: 3, title: 'Case 3', description: 'Description of Case 3' },
-      { id: 4, title: 'Case 4', description: 'Description of Case 4' },
-    ];
+  createCase(_caseData: CreateCaseDto): Promise<Case> {
+    void _caseData;
+    throw new NotImplementedException(
+      'Case persistence must be implemented with Prisma',
+    );
   }
 
-  findAll() {
-    return this.cases;
+  findAll(): Promise<Case[]> {
+    throw new NotImplementedException(
+      'Case persistence must be implemented with Prisma',
+    );
   }
 
-  findById(id: number) {
-    const foundCase = this.cases.find((c) => c.id === Number(id));
-    if (!foundCase) {
-      throw new NotFoundException(`Case with ID ${id} not found`);
-    }
-    return foundCase;
+  findBySlug(_slug: string): Promise<Case> {
+    void _slug;
+    throw new NotImplementedException(
+      'Case persistence must be implemented with Prisma',
+    );
   }
 }
