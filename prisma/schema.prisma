@@ -1,8 +1,32 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model Case {
+  slug String @id
+
+  name             String
+  projectLink      String   @map("project_link")
+  category         String
+  stack            String[]
+  shortDescription String   @map("short_description")
+  description      String
+  role             Role
+  achievements     String[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("cases")
+}
+
+enum Role {
+  FRONTEND
+  FULLSTACK
 }

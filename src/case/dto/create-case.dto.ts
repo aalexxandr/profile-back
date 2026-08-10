@@ -9,7 +9,7 @@ import {
   IsUrl,
   MaxLength,
 } from 'class-validator';
-import { CaseRole } from '../models/case.model';
+import { Role } from '../../generated/prisma/enums';
 
 export class CreateCaseDto {
   @IsString()
@@ -52,8 +52,8 @@ export class CreateCaseDto {
   @MaxLength(500)
   description!: string;
 
-  @IsEnum(CaseRole)
-  role!: CaseRole;
+  @IsEnum(Role)
+  role!: Role;
 
   @IsArray()
   @ArrayMaxSize(10)

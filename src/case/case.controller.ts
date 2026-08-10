@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { CaseService } from './case.service';
 import { CreateCaseDto } from './dto/create-case.dto';
-import { Case } from './models/case.model';
+import { Case } from '../generated/prisma/client';
 
 @Controller('cases')
 export class CaseController {
@@ -9,7 +9,6 @@ export class CaseController {
 
   @Post()
   createCase(@Body() caseDataDto: CreateCaseDto): Promise<Case> {
-    console.log('Creating case with data:', caseDataDto);
     return this.caseService.createCase(caseDataDto);
   }
 
