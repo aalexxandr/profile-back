@@ -1,0 +1,22 @@
+// use prisma-8
+
+model Case {
+  slug             String @id
+  name             String
+  projectLink      String @map("project_link")
+  category         String
+  stack            String[]
+  shortDescription String @map("short_description")
+  description      String
+  role             pg.enum(Role)
+  achievements     String[]
+  createdAt        TimestamptzJsDate @default(now()) @map("created_at")
+  updatedAt        temporal.updatedAtJsDate() @map("updated_at")
+
+  @@map("cases")
+}
+
+native_enum Role {
+  FRONTEND = "FRONTEND"
+  FULLSTACK = "FULLSTACK"
+}

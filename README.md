@@ -1,98 +1,114 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Portfolio backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS 12, TypeScript 6 и Prisma ORM 8 (release candidate), PostgreSQL 18.
+Нужны Node.js >= 24.11, pnpm и работающий Docker Desktop.
+Все команды ниже выполняются из `profile-back`.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Первый запуск
 
-## Description
+Создайте `.env` (реальные пароли не коммитить):
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ pnpm install
+```dotenv
+POSTGRES_USER=portfolio
+POSTGRES_PASSWORD=replace_me
+POSTGRES_DB=portfolio
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5434
+POSTGRES_URI="postgresql://portfolio:replace_me@localhost:5434/portfolio"
 ```
 
-## Compile and run the project
+Приложение и Prisma CLI читают именно `POSTGRES_URI`. Логин и пароль должны
+соответствовать уже существующему тому PostgreSQL: изменение `.env` не меняет
+пароль пользователя в инициализированной базе.
 
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+pnpm install --frozen-lockfile
+docker compose --env-file .env up -d postgres
+pnpm run db:init
+pnpm run start:dev
 ```
 
-## Run tests
+`db:init` генерирует контракт и создаёт недостающие объекты базы. Использует
+только добавляющие операции; несовместимая существующая структура вызывает ошибку.
+Данные хранятся в Docker volume `postgres_data`.
+
+API: `http://localhost:3000/cases`. Порт приложения можно изменить переменной `PORT`.
+
+## Ежедневная работа
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+docker compose --env-file .env up -d postgres
+pnpm run start:dev
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Watch-режим Nest автоматически перекомпилирует приложение при изменении кода.
+Чтобы остановить приложение, нажмите Ctrl+C. Чтобы остановить базу:
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+docker compose --env-file .env stop
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Prisma 8
 
-## Resources
+Схема находится в `prisma/contract.prisma`, подключение и путь генерации —
+в `prisma.config.ts`. Генерируются `src/generated/prisma/contract.json` и
+`contract.d.ts`. Эти файлы не редактируют вручную и не коммитят.
+В приложении используется `@prisma/orm-postgres`, а не Prisma Client 7.
+Версии CLI и PostgreSQL runtime выпускаются независимо и могут различаться.
 
-Check out a few resources that may come in handy when working with NestJS:
+| Команда | Назначение |
+| --- | --- |
+| `pnpm run db:generate` | Генерирует JSON-контракт и типы; базу не изменяет |
+| `pnpm run db:init` | Генерирует контракт и инициализирует базу |
+| `pnpm run db:plan` | Показывает изменения между контрактом и базой без применения |
+| `pnpm run db:update` | Применяет изменения контракта к локальной базе |
+| `pnpm run db:verify` | Проверяет соответствие базы контракту |
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+После изменения схемы при локальном прототипировании:
 
-## Support
+```bash
+pnpm run db:plan
+pnpm run db:update
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Изменения, удаляющие данные, требуют отдельного подтверждения CLI.
+Генерация автоматически выполняется перед сборкой и запуском приложения.
+Прежние команды `prisma db push` и `prisma generate` к Prisma 8 не применяются.
+Сообщение `prisma skills sync` относится к подсказкам для AI-агентов и не мешает ORM.
 
-## Stay in touch
+Для сохранения истории изменений используйте миграции вместо прямого `db:update`:
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+pnpm run db:migration:plan --name describe_change
+pnpm run db:migrate
+pnpm run db:verify
+```
 
-## License
+Планирование само генерирует актуальный контракт. Артефакты `migrations/` сохраняйте
+в Git вместе со схемой; первая миграция после принятия существующей базы создаёт
+также исходный снимок схемы.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Проверки
+
+```bash
+pnpm run build
+pnpm run lint
+pnpm run test:e2e --runInBand
+```
+
+Интеграционные тесты требуют доступной локальной базы с применённой схемой.
+Они создают запись с уникальным тестовым slug, проверяют API и удаляют только её.
+Используйте базу разработки, не production. `pnpm test` также запускает эти тесты.
+Jest запускается с `--experimental-vm-modules` для ESM-зависимостей NestJS 12
+и Prisma 8; предупреждение Node об экспериментальном VM API ожидаемо.
+
+Для запуска собранного приложения:
+
+```bash
+pnpm run build
+pnpm run start:prod
+```
+
+TypeScript намеренно ограничен веткой 6: Nest CLI и typescript-eslint пока
+не поддерживают программный API TypeScript 7. `pnpm update --latest` обходит
+ограничения версий, поэтому обновляйте основные версии по отдельности.

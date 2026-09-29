@@ -9,7 +9,7 @@ import {
   IsUrl,
   MaxLength,
 } from 'class-validator';
-import { Role } from '../../generated/prisma/enums';
+import { Role } from '../../prisma/enums';
 
 export class CreateCaseDto {
   @IsString()
