@@ -6,7 +6,8 @@ NestJS 12, TypeScript 6 и Prisma ORM 8 (release candidate), PostgreSQL 18.
 
 ## Первый запуск
 
-Создайте `.env` (реальные пароли не коммитить):
+Создайте `.env` из шаблона (`cp .env.example .env`) и замените заглушки; реальные
+пароли не коммитить. Пример содержимого:
 
 ```dotenv
 POSTGRES_USER=portfolio
@@ -56,13 +57,13 @@ docker compose --env-file .env stop
 В приложении используется `@prisma/orm-postgres`, а не Prisma Client 7.
 Версии CLI и PostgreSQL runtime выпускаются независимо и могут различаться.
 
-| Команда | Назначение |
-| --- | --- |
-| `pnpm run db:generate` | Генерирует JSON-контракт и типы; базу не изменяет |
-| `pnpm run db:init` | Генерирует контракт и инициализирует базу |
-| `pnpm run db:plan` | Показывает изменения между контрактом и базой без применения |
-| `pnpm run db:update` | Применяет изменения контракта к локальной базе |
-| `pnpm run db:verify` | Проверяет соответствие базы контракту |
+| Команда                | Назначение                                                   |
+| ---------------------- | ------------------------------------------------------------ |
+| `pnpm run db:generate` | Генерирует JSON-контракт и типы; базу не изменяет            |
+| `pnpm run db:init`     | Генерирует контракт и инициализирует базу                    |
+| `pnpm run db:plan`     | Показывает изменения между контрактом и базой без применения |
+| `pnpm run db:update`   | Применяет изменения контракта к локальной базе               |
+| `pnpm run db:verify`   | Проверяет соответствие базы контракту                        |
 
 После изменения схемы при локальном прототипировании:
 
@@ -91,8 +92,11 @@ pnpm run db:verify
 ## Проверки
 
 ```bash
+pnpm run check          # typecheck + lint + тесты одной командой
+pnpm run typecheck      # tsc --noEmit
+pnpm run lint           # ESLint, предупреждения считаются ошибками
+pnpm run format:check   # Prettier без изменения файлов
 pnpm run build
-pnpm run lint
 pnpm run test:e2e --runInBand
 ```
 
@@ -101,6 +105,17 @@ pnpm run test:e2e --runInBand
 Используйте базу разработки, не production. `pnpm test` также запускает эти тесты.
 Jest запускается с `--experimental-vm-modules` для ESM-зависимостей NestJS 12
 и Prisma 8; предупреждение Node об экспериментальном VM API ожидаемо.
+
+### Git-хуки и CI
+
+После `pnpm install` скрипт `prepare` включает husky:
+
+- `pre-commit`: `lint-staged` (ESLint и Prettier по изменённым файлам) и `secretlint` (поиск токенов и паролей);
+- `commit-msg`: `commitlint`, сообщения в формате Conventional Commits (`feat: ...`, `fix(case): ...`).
+
+GitHub Actions (`.github/workflows/ci.yml`) на каждый push в `main` и pull request
+поднимает PostgreSQL 18 и выполняет typecheck, lint, format:check, тесты, e2e и сборку.
+Dependabot раз в неделю предлагает обновления, major-версии `typescript` и `@types/node` игнорируются.
 
 Для запуска собранного приложения:
 

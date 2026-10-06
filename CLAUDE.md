@@ -13,8 +13,10 @@ docker compose --env-file .env up -d postgres   # local DB on host port 5434
 pnpm run db:init          # first run: generate contract + create missing DB objects
 pnpm run start:dev        # watch mode (runs db:generate first), API on :3000 (PORT overrides)
 pnpm run build            # db:generate + nest build
-pnpm run lint             # eslint on src and test; lint:fix to autofix
-pnpm run format           # prettier
+pnpm run lint             # eslint on src and test (--max-warnings 0); lint:fix to autofix
+pnpm run typecheck        # tsc --noEmit
+pnpm run check            # typecheck + lint + tests; run before finishing a task
+pnpm run format           # prettier --write; format:check to verify
 pnpm test                 # jest (note: runs with --experimental-vm-modules)
 pnpm run test:e2e --runInBand
 pnpm test -- -t "name"    # single test by name; or pass a file path
@@ -22,7 +24,16 @@ pnpm test -- -t "name"    # single test by name; or pass a file path
 
 Do not use `pnpm update --latest` (bypasses version pins); update major versions one at a time.
 
-`.env` must define `POSTGRES_URI` — both the app (via `ConfigService.getOrThrow`) and Prisma CLI (`prisma.config.ts`) read it. E2E tests hit the real local DB (they create and delete a record with a unique slug), so the schema must already be applied and the DB must not be production.
+`.env.example` is the template. `.env` must define `POSTGRES_URI` — both the app (via `ConfigService.getOrThrow`) and Prisma CLI (`prisma.config.ts`) read it. E2E tests hit the real local DB (they create and delete a record with a unique slug), so the schema must already be applied and the DB must not be production.
+
+## Code quality tooling
+
+- ESLint (`eslint.config.mjs`): typed `recommendedTypeChecked`, `no-floating-promises` and `no-unsafe-argument` are errors, `simple-import-sort` and `unused-imports` enforced; unused args/vars must start with `_`. Don't silence rules, fix the code.
+- `tsconfig.json` is strict (`noUnusedLocals`, `noUnusedParameters`, `noUncheckedIndexedAccess`, `noImplicitOverride`).
+- Claude hooks (`.claude/settings.json`): after each Edit/Write of a `.ts` file `.claude/hooks/format-lint.sh` runs prettier + eslint --fix; the Stop hook `.claude/hooks/stop-check.sh` blocks finishing while `typecheck` or `lint` fail. Settings also deny reading `.env` and running DB-mutating commands (`db:update`, `db:migrate`, `db:init`, `prisma db *`): ask the user to run those.
+- Git hooks (husky): pre-commit runs lint-staged + secretlint, commit-msg enforces Conventional Commits (commitlint).
+- CI: `.github/workflows/ci.yml` (typecheck, lint, format:check, tests, e2e against postgres 18, build). Dependabot ignores TS and `@types/node` majors.
+- Slash commands `/check`, `/new-module <name>`; subagent `nest-reviewer`. Per-area conventions: `src/case/CLAUDE.md`, `test/CLAUDE.md`.
 
 ## Prisma 8 (differs from Prisma 7 and earlier)
 
