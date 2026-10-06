@@ -1,0 +1,55 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm run lint)",
+      "Bash(pnpm run lint:fix)",
+      "Bash(pnpm run typecheck)",
+      "Bash(pnpm run check)",
+      "Bash(pnpm run build)",
+      "Bash(pnpm run format)",
+      "Bash(pnpm run format:check)",
+      "Bash(pnpm run db:generate)",
+      "Bash(pnpm run db:plan)",
+      "Bash(pnpm run db:verify)",
+      "Bash(pnpm test*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(pnpm run db:update*)",
+      "Bash(pnpm run db:migrate*)",
+      "Bash(pnpm run db:init*)",
+      "Bash(prisma db *)",
+      "Bash(pnpm exec prisma db *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-lint.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop-check.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
