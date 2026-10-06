@@ -12,8 +12,8 @@
     "start:dev": "pnpm run db:generate && nest start --watch",
     "start:debug": "pnpm run db:generate && nest start --debug --watch",
     "start:prod": "node dist/main",
-    "lint": "eslint \"{src,test}/**/*.ts\"",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "lint": "eslint \"{src,test}/**/*.ts\" --max-warnings 0",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --passWithNoTests",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "test:debug": "node --inspect-brk --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
@@ -25,7 +25,11 @@
     "db:verify": "prisma db verify",
     "db:migration:plan": "pnpm run db:generate && prisma migration plan",
     "db:migrate": "prisma db migrate --advance-ref db",
-    "lint:fix": "pnpm run lint --fix"
+    "lint:fix": "pnpm run lint --fix",
+    "format:check": "prettier --check \"{src,test}/**/*.ts\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm test",
+    "prepare": "husky"
   },
   "dependencies": {
     "@nestjs/common": "^12.1.0",
@@ -42,11 +46,14 @@
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
     "@eslint/eslintrc": "^3.3.7",
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^12.0.7",
     "@nestjs/schematics": "^12.0.5",
     "@nestjs/testing": "^12.1.0",
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.7",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.3",
@@ -56,9 +63,14 @@
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
     "globals": "^17.12.0",
+    "husky": "^9.1.7",
     "jest": "^30.5.2",
+    "lint-staged": "^17.6.0",
     "prettier": "^3.9.9",
+    "secretlint": "^13.0.7",
     "source-map-support": "^0.5.21",
     "supertest": "^7.3.0",
     "ts-jest": "^29.4.14",
@@ -89,5 +101,15 @@
   },
   "engines": {
     "node": ">=24.11.0"
-  }
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix --max-warnings 0",
+      "prettier --write"
+    ],
+    "*.{json,md,yaml,yml}": [
+      "prettier --write"
+    ]
+  },
+  "packageManager": "pnpm@12.6.0"
 }
