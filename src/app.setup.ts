@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { logger } from './common/middlewares/logger.middleware';
 import { AllExceptionFilter } from './filters/all-exeption.filter';
+import { setupSwagger } from './utils/swagger.util';
 
 export function configureApp(app: INestApplication) {
   app.useGlobalPipes(
@@ -12,5 +13,8 @@ export function configureApp(app: INestApplication) {
   );
   app.use(logger);
   app.useGlobalFilters(new AllExceptionFilter());
+
+  setupSwagger(app);
+
   app.enableShutdownHooks();
 }
