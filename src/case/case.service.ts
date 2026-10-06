@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { CreateCaseDto } from './dto/create-case.dto';
+
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateCaseDto } from './dto/create-case.dto';
 
 @Injectable()
 export class CaseService {

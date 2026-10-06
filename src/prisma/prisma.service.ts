@@ -1,6 +1,7 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import postgres from '@prisma/orm-postgres/runtime';
+
 import type { Contract } from '../generated/prisma/contract';
 import contractJson from '../generated/prisma/contract.json';
 

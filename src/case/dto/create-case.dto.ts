@@ -9,6 +9,7 @@ import {
   IsUrl,
   MaxLength,
 } from 'class-validator';
+
 import { Role } from '../../prisma/enums';
 
 export class CreateCaseDto {

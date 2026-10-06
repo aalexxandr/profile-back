@@ -1,4 +1,5 @@
 import postgresStatic from '@prisma/orm-postgres/static';
+
 import type { Contract } from '../generated/prisma/contract';
 import contractJson from '../generated/prisma/contract.json';
 
