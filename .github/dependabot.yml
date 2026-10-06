@@ -14,6 +14,8 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: '@types/node'
         update-types: [version-update:semver-major]
+      # 8.71.0 ломает unused-imports/no-unused-imports (ложное 'Body' is defined but never used)
+      - dependency-name: typescript-eslint
   - package-ecosystem: github-actions
     directory: /
     schedule:
