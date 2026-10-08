@@ -7,9 +7,9 @@
 
 Шаг считается готовым, когда отмечены все его пункты.
 
-- [ ] Шаг 1. Разделить unit и e2e в конфигурации Jest (почти готов: остаётся убрать `--passWithNoTests` в шаге 3)
+- [x] Шаг 1. Разделить unit и e2e в конфигурации Jest
 - [ ] Шаг 2. Общие помощники для тестов (`test/helpers`)
-- [ ] Шаг 3. Образцовые тесты на существующий код (кроме `case`)
+- [x] Шаг 3. Образцовые тесты на существующий код (кроме `case`)
 - [ ] Шаг 4. Автоматизация для ИИ: скилл, команды, хуки, права, ревьюер
 - [ ] Шаг 5. CI и порог покрытия
 - [ ] Шаг 6. Документация
@@ -62,7 +62,7 @@ E2E бывают двух видов:
 - [x] Убедиться, что `test/jest-e2e.json` ловит только `*.e2e-spec.ts` и не требует `rootDir: src`.
 - [x] Проверить ESM-режим: Jest идёт с `--experimental-vm-modules`, а `ts-jest` должен корректно импортировать `src/generated/prisma/contract.json` и `@prisma/orm-postgres`. Если нет, поправить `transform`/tsconfig для тестов, не ослабляя strict.
 - [x] Для e2e выключить шум логов: `setupFiles` с заглушкой `console.log` и `Logger.overrideLogger(false)`, переключаемый переменной (например `DEBUG_TESTS=1` возвращает логи).
-- [ ] `--passWithNoTests`: в скрипте `test:e2e` его не было, в CI-шаге e2e оставляем до шага 3 (пока нет ни одного e2e-теста, шаг без флага упадёт). В шаге 3 убрать флаг из CI-шага e2e и из скрипта `test`.
+- [x] `--passWithNoTests`: в скрипте `test:e2e` его не было; убран из CI-шага e2e и из скрипта `test` в шаге 3, когда появились первые тесты.
 
 Сделано (проверено временными пробными тестами, они удалены): `pnpm test` видит только `*.spec.ts` из `src`, `test:e2e` только `*.e2e-spec.ts` из `test`, ESM-импорты `contract.json`, `enums`, `PrismaService` под ts-jest работают, отчёт покрытия пишется в `coverage/` в корне (он в `.gitignore`), `console.log` в e2e заглушён (`DEBUG_TESTS=1` возвращает).
 
@@ -86,24 +86,26 @@ E2E бывают двух видов:
 
 Эти тесты и полезны сами по себе, и служат образцами, которые ИИ повторяет по стилю. Поэтому они пишутся аккуратно, с понятными названиями на русском (как в проекте).
 
-- [ ] **`src/filters/all-exeption.filter.spec.ts`** (unit). Мокаем `ArgumentsHost` и `Response` (`status()` возвращает объект с `json`), логгер глушим (`jest.spyOn(Logger.prototype, 'error').mockImplementation()`). Проверить:
+- [x] **`src/filters/all-exeption.filter.spec.ts`** (unit). Мокаем `ArgumentsHost` и `Response` (`status()` возвращает объект с `json`), логгер глушим (`jest.spyOn(Logger.prototype, 'error').mockImplementation()`). Проверить:
   - `HttpException` → тот же статус, в теле `status`, `message`, `timestamp` (ISO-строка), `path`;
   - обычный `Error('секрет')` → 500 и `Internal server error`, текст ошибки клиенту не уходит;
   - выброшено не `Error` (строка) → 500;
   - ошибка логируется;
   - `BadRequestException` со списком сообщений (как от `ValidationPipe`) → в ответе список сообщений по полям. Сейчас фильтр берёт только `exception.message` и список теряет, поэтому этот тест красный до правки фильтра (см. решение ниже).
-- [ ] **`src/common/middlewares/logger.middleware.spec.ts`** (unit): пишет `Request: [METHOD] url` и вызывает `next()` ровно один раз.
-- [ ] **`test/app-setup.e2e-spec.ts`** (e2e без БД, образец для остальных): внутри файла объявить заглушку-контроллер с DTO (`@IsString`, `@IsInt`) и поднять её через `createTestApp`. Проверить поведение `configureApp()`:
+- [x] **`src/common/middlewares/logger.middleware.spec.ts`** (unit): пишет `Request: [METHOD] url` и вызывает `next()` ровно один раз.
+- [x] **`test/app-setup.e2e-spec.ts`** (e2e без БД, образец для остальных): внутри файла объявить заглушку-контроллер с DTO (`@IsString`, `@IsInt`) и поднять её через `createTestApp`. Проверить поведение `configureApp()`:
   - обычный запрос проходит;
   - `transform`: число из тела приходит числом;
   - `forbidNonWhitelisted`: лишнее поле → 400 и сообщение `property extra should not exist`;
   - ошибки валидации приходят списком в формате фильтра (`status`, `message`, `path`);
   - неизвестный маршрут → 404 в формате фильтра;
   - `GET /docs-json` → 200 и `info.title === 'Portfolio API'`.
-- [ ] **Исправить `AllExceptionFilter` (решено: чиним).** Брать список ошибок из `exception.getResponse().message`; формат ответа меняется: для ошибок валидации `message` становится массивом строк. Порядок: сначала красный тест на фильтр, потом правка, отдельный коммит `fix(filters): ...`.
-- [ ] **`src/prisma/prisma.service.spec.ts`** (unit, решено: нужен). Мокаем `@prisma/orm-postgres/runtime` (`jest.mock`), конфиг подаём через `ConfigService`-заглушку. Проверить: URL берётся из `POSTGRES_URI` через `getOrThrow`; без `POSTGRES_URI` конструктор бросает ошибку; геттер модели отдаёт `client.orm.public.<Model>` (проверяем на любой существующей модели, не привязываясь к `case`: если `case` удалят, тест правится вместе с геттером); `onModuleDestroy` вызывает `client.close()`. Если мок ESM-модуля с `--experimental-vm-modules` окажется неработоспособным, зафиксировать причину в плане и вынести проверку в e2e с БД.
+- [x] **Исправить `AllExceptionFilter` (решено: чиним).** Брать список ошибок из `exception.getResponse().message`; формат ответа меняется: для ошибок валидации `message` становится массивом строк. Порядок: сначала красный тест на фильтр, потом правка, отдельный коммит `fix(filters): ...`.
+- [x] **`src/prisma/prisma.service.spec.ts`** (unit, решено: нужен). Мокаем `@prisma/orm-postgres/runtime` (`jest.mock`), конфиг подаём через `ConfigService`-заглушку. Проверить: URL берётся из `POSTGRES_URI` через `getOrThrow`; без `POSTGRES_URI` конструктор бросает ошибку; геттер модели отдаёт `client.orm.public.<Model>` (проверяем на любой существующей модели, не привязываясь к `case`: если `case` удалят, тест правится вместе с геттером); `onModuleDestroy` вызывает `client.close()`. Если мок ESM-модуля с `--experimental-vm-modules` окажется неработоспособным, зафиксировать причину в плане и вынести проверку в e2e с БД.
 
 Не тестируем: пустые `AppController`/`AppService`, `swagger.config` (покрыт проверкой `/docs-json`), `CreatePreviewFromImagePipe` (заглушка с TODO; тест появится вместе с логикой), модуль `case`.
+
+Сделано: 11 unit-тестов (фильтр, logger, `PrismaService`) и 6 e2e-тестов `configureApp()` без БД, фильтр исправлен (красный тест был подтверждён до правки), `--passWithNoTests` убран из скрипта `test` и CI. Мок `@prisma/orm-postgres/runtime` через `jest.mock` под ESM-режимом работает, запасной план с e2e не понадобился. Отдельно: в `PrismaService` проверяется геттер `cases`; при удалении модуля `case` тест правится вместе с геттером.
 
 Готово, когда: `pnpm test` и `pnpm run test:e2e --runInBand` проходят без БД (e2e без БД), `pnpm run check` зелёный.
 
@@ -160,10 +162,10 @@ E2E бывают двух видов:
 
 ## 11. Порядок работы и коммиты
 
-- [ ] `test(infra): split unit and e2e jest configs` (шаг 1)
-- [ ] `test(infra): add shared e2e helpers` (шаг 2)
-- [ ] `fix(filters): include validation messages in error response` (шаг 3)
-- [ ] `test: cover exception filter, logger and configureApp` (шаг 3)
+- [x] `test(infra): split unit and e2e jest configs` (шаг 1)
+- [x] `test(infra): add shared e2e helpers` (шаг 2)
+- [x] `fix(filters): include validation messages in error response` (шаг 3)
+- [x] `test: cover logger, configureApp and PrismaService` (шаг 3; тесты фильтра вошли в `fix(filters)`)
 - [ ] `chore(claude): add test automation (skill, command, stop hook)` (шаг 4)
 - [ ] `ci: run coverage with threshold` (шаг 5)
 - [ ] `docs: describe testing workflow` (шаг 6)
