@@ -45,5 +45,5 @@ jobs:
       - run: pnpm run format:check
       - run: pnpm test
       - run: pnpm run db:init
-      - run: pnpm run test:e2e --runInBand --passWithNoTests
+      - run: pnpm run test:e2e --runInBand
       - run: pnpm run build
