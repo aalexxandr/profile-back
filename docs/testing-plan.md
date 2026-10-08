@@ -72,11 +72,13 @@ E2E бывают двух видов:
 
 Цель: чтобы ИИ и человек писали e2e одной строкой подготовки, а не копировали каждый раз boilerplate.
 
-- [ ] `test/helpers/create-test-app.ts`: функция `createTestApp(metadata: ModuleMetadata)` собирает `Test.createTestingModule(metadata)`, создаёт приложение, вызывает `configureApp(app)` (обязательно, как в проде), делает `app.init()` и возвращает приложение. В комментарии: закрывать в `afterAll`.
-- [ ] `test/helpers/assert-safe-database.ts`: функция, которая бросает ошибку, если `POSTGRES_URI` указывает не на `localhost`/`127.0.0.1`/`::1`. Пустое значение допустимо (тест без БД). `createTestApp` вызывает её до сборки модуля. Это защита от запуска e2e на production.
-- [ ] `test/helpers/unique-id.ts`: `uniqueId(prefix, maxLength)` для уникальных значений (slug, имя), с учётом ограничений длины поля.
-- [ ] Решить и описать в `test/CLAUDE.md`, как e2e с БД чистят данные: удаляют только свои записи по уникальному идентификатору в `afterAll` через `app.get(PrismaService)`. Общий хелпер очистки не вводим, пока нет второй модели.
-- [ ] Для самих помощников: защита от production (`assert-safe-database`) покрывается тестом (хост `localhost` проходит, внешний хост и невалидный URL отклоняются, пустое значение проходит).
+- [x] `test/helpers/create-test-app.ts`: функция `createTestApp(metadata: ModuleMetadata)` собирает `Test.createTestingModule(metadata)`, создаёт приложение, вызывает `configureApp(app)` (обязательно, как в проде), делает `app.init()` и возвращает приложение. В комментарии: закрывать в `afterAll`.
+- [x] `test/helpers/assert-safe-database.ts`: функция, которая бросает ошибку, если `POSTGRES_URI` указывает не на `localhost`/`127.0.0.1`/`::1`. Пустое значение допустимо (тест без БД). `createTestApp` вызывает её до сборки модуля. Это защита от запуска e2e на production.
+- [x] `test/helpers/unique-id.ts`: `uniqueId(prefix, maxLength)` для уникальных значений (slug, имя), с учётом ограничений длины поля.
+- [x] Решить и описать в `test/CLAUDE.md`, как e2e с БД чистят данные: удаляют только свои записи по уникальному идентификатору в `afterAll` через `app.get(PrismaService)`. Общий хелпер очистки не вводим, пока нет второй модели.
+- [x] Для самих помощников: защита от production (`assert-safe-database`) и `uniqueId` покрываются тестом `test/helpers/helpers.e2e-spec.ts` (он лежит среди e2e, потому что помощники живут в `test/`; БД ему не нужна) (хост `localhost` проходит, внешний хост и невалидный URL отклоняются, пустое значение проходит).
+
+Сделано: помощники созданы, 8 тестов проходят, typecheck/lint/format зелёные. `createTestApp` будет проверен в шаге 3 e2e-образцом.
 
 Готово, когда: новый e2e пишется как `app = await createTestApp({ controllers: [...] })` + `afterAll(() => app.close())`.
 
