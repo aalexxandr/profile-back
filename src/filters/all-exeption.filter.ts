@@ -14,10 +14,10 @@ export class AllExceptionFilter {
 
     const message =
       exception instanceof HttpException
-        ? exception.message
+        ? this.getHttpMessage(exception)
         : 'Internal server error';
 
-    this.logger.error(`Status: ${status} Error: ${message}`);
+    this.logger.error(`Status: ${status} Error: ${JSON.stringify(message)}`);
 
     response.status(status).json({
       status: status,
@@ -25,5 +25,16 @@ export class AllExceptionFilter {
       timestamp: new Date().toISOString(),
       path: ctx.getRequest<Request>().url,
     });
+  }
+
+  // ValidationPipe кладёт список ошибок по полям в getResponse().message
+  private getHttpMessage(exception: HttpException): string | string[] {
+    const body = exception.getResponse();
+    if (typeof body === 'object' && 'message' in body) {
+      const { message } = body;
+      if (typeof message === 'string') return message;
+      if (Array.isArray(message)) return message.map(String);
+    }
+    return exception.message;
   }
 }
