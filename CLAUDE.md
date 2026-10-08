@@ -17,23 +17,24 @@ pnpm run lint             # eslint on src and test (--max-warnings 0); lint:fix 
 pnpm run typecheck        # tsc --noEmit
 pnpm run check            # typecheck + lint + tests; run before finishing a task
 pnpm run format           # prettier --write; format:check to verify
-pnpm test                 # jest (note: runs with --experimental-vm-modules)
+pnpm test                 # unit tests only (src/**/*.spec.ts, no DB); jest runs with --experimental-vm-modules
+pnpm run test:cov         # unit tests with coverage thresholds (used in CI)
 pnpm run test:e2e --runInBand
 pnpm test -- -t "name"    # single test by name; or pass a file path
 ```
 
 Do not use `pnpm update --latest` (bypasses version pins); update major versions one at a time.
 
-`.env.example` is the template. `.env` must define `POSTGRES_URI` — both the app (via `ConfigService.getOrThrow`) and Prisma CLI (`prisma.config.ts`) read it. E2E tests hit the real local DB (they create and delete a record with a unique slug), so the schema must already be applied and the DB must not be production.
+`.env.example` is the template. `.env` must define `POSTGRES_URI` — both the app (via `ConfigService.getOrThrow`) and Prisma CLI (`prisma.config.ts`) read it. E2E tests that use the DB hit the real local DB (unique data, deleted afterwards), so the schema must already be applied and the DB must not be production (`assertSafeDatabase` refuses non-local hosts). Some e2e run without a DB.
 
 ## Code quality tooling
 
 - ESLint (`eslint.config.mjs`): typed `recommendedTypeChecked`, `no-floating-promises` and `no-unsafe-argument` are errors, `simple-import-sort` and `unused-imports` enforced; unused args/vars must start with `_`. Don't silence rules, fix the code.
 - `tsconfig.json` is strict (`noUnusedLocals`, `noUnusedParameters`, `noUncheckedIndexedAccess`, `noImplicitOverride`).
-- Claude hooks (`.claude/settings.json`): after each Edit/Write of a `.ts` file `.claude/hooks/format-lint.sh` runs prettier + eslint --fix; the Stop hook `.claude/hooks/stop-check.sh` blocks finishing while `typecheck` or `lint` fail. Settings also deny reading `.env` and running DB-mutating commands (`db:update`, `db:migrate`, `db:init`, `prisma db *`): ask the user to run those.
+- Claude hooks (`.claude/settings.json`): after each Edit/Write of a `.ts` file `.claude/hooks/format-lint.sh` runs prettier + eslint --fix; the Stop hook `.claude/hooks/stop-check.sh` blocks finishing while `typecheck`, `lint` or unit tests fail, and once per stop asks for tests if `src` changed without any spec file in the working tree. Settings also deny reading `.env` and running DB-mutating commands (`db:update`, `db:migrate`, `db:init`, `prisma db *`): ask the user to run those.
 - Git hooks (husky): pre-commit runs lint-staged + secretlint, commit-msg enforces Conventional Commits (commitlint).
 - CI: `.github/workflows/ci.yml` (typecheck, lint, format:check, tests, e2e against postgres 18, build). Dependabot ignores TS and `@types/node` majors.
-- Slash commands `/check`, `/new-module <name>`; subagent `nest-reviewer`. Per-area conventions: `src/case/CLAUDE.md`, `test/CLAUDE.md`. Skill `writing-tests` for writing tests.
+- Slash commands `/check`, `/new-module <name>`, `/add-tests [path]`; subagent `nest-reviewer`. Per-area conventions: `src/case/CLAUDE.md`, `test/CLAUDE.md`. Skill `writing-tests` for writing tests.
 
 ## Prisma 8 (differs from Prisma 7 and earlier)
 
@@ -52,7 +53,7 @@ App-wide setup lives in `configureApp()` (`src/app.setup.ts`), not `main.ts`, so
 
 ## Tests
 
-Весь новый функционал, который стоит покрыть тестами, должен покрываться тестами в том же изменении: новый эндпоинт (e2e), новое DTO или правила валидации (unit), логика в сервисе, фильтре, пайпе, guard (unit). Исправление бага начинается с теста, который его воспроизводит. Без теста можно оставить только правки документации и конфигов, переименования без смены поведения и пустые заглушки; если пропускаешь тест там, где он уместен, объясни почему. Как писать: скилл `writing-tests` (`.claude/skills/writing-tests/SKILL.md`), конвенции в `test/CLAUDE.md`, общий план в `docs/testing-plan.md`.
+Весь новый функционал, который стоит покрыть тестами, должен покрываться тестами в том же изменении: новый эндпоинт (e2e), новое DTO или правила валидации (unit), логика в сервисе, фильтре, пайпе, guard (unit). Исправление бага начинается с теста, который его воспроизводит. Без теста можно оставить только правки документации и конфигов, переименования без смены поведения и пустые заглушки; если пропускаешь тест там, где он уместен, объясни почему. Как писать: скилл `writing-tests` (`.claude/skills/writing-tests/SKILL.md`), конвенции в `test/CLAUDE.md`, общий план в `docs/testing-plan.md`. Unit-тесты лежат рядом с кодом (`*.spec.ts`), e2e в `test/*.e2e-spec.ts`; помощники `test/helpers` (`createTestApp`, `assertSafeDatabase`, `uniqueId`); `/add-tests` пишет тесты для текущих изменений. Модуль `case` тестовый, тестов на него не пишем.
 
 ## Keeping docs current
 
