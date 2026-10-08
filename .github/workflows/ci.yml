@@ -43,7 +43,7 @@ jobs:
       - run: pnpm run typecheck
       - run: pnpm run lint
       - run: pnpm run format:check
-      - run: pnpm test
+      - run: pnpm run test:cov
       - run: pnpm run db:init
       - run: pnpm run test:e2e --runInBand
       - run: pnpm run build
