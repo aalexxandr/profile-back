@@ -12,6 +12,7 @@
       "Bash(pnpm run db:plan)",
       "Bash(pnpm run db:verify)",
       "Bash(pnpm test*)",
+      "Bash(pnpm run test:cov*)",
       "Bash(git status*)",
       "Bash(git diff*)",
       "Bash(git log*)",
