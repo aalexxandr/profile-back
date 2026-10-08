@@ -33,7 +33,7 @@ Do not use `pnpm update --latest` (bypasses version pins); update major versions
 - Claude hooks (`.claude/settings.json`): after each Edit/Write of a `.ts` file `.claude/hooks/format-lint.sh` runs prettier + eslint --fix; the Stop hook `.claude/hooks/stop-check.sh` blocks finishing while `typecheck` or `lint` fail. Settings also deny reading `.env` and running DB-mutating commands (`db:update`, `db:migrate`, `db:init`, `prisma db *`): ask the user to run those.
 - Git hooks (husky): pre-commit runs lint-staged + secretlint, commit-msg enforces Conventional Commits (commitlint).
 - CI: `.github/workflows/ci.yml` (typecheck, lint, format:check, tests, e2e against postgres 18, build). Dependabot ignores TS and `@types/node` majors.
-- Slash commands `/check`, `/new-module <name>`; subagent `nest-reviewer`. Per-area conventions: `src/case/CLAUDE.md`, `test/CLAUDE.md`.
+- Slash commands `/check`, `/new-module <name>`; subagent `nest-reviewer`. Per-area conventions: `src/case/CLAUDE.md`, `test/CLAUDE.md`. Skill `writing-tests` for writing tests.
 
 ## Prisma 8 (differs from Prisma 7 and earlier)
 
@@ -49,6 +49,10 @@ Do not use `pnpm update --latest` (bypasses version pins); update major versions
 Standard Nest layout: feature modules under `src/` (currently only `case/`: controller → service → `PrismaService`, DTOs validated with class-validator). `PrismaModule` provides the DB service; `ConfigModule` is global.
 
 App-wide setup lives in `configureApp()` (`src/app.setup.ts`), not `main.ts`, so e2e tests can reuse it: global `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`, `transform`), the `logger` middleware, `AllExceptionFilter`, Swagger (`src/utils/swagger.util.ts`, config in `src/config/swagger.config.ts`), and shutdown hooks. E2E tests should call `configureApp` to match production behavior.
+
+## Tests
+
+Весь новый функционал, который стоит покрыть тестами, должен покрываться тестами в том же изменении: новый эндпоинт (e2e), новое DTO или правила валидации (unit), логика в сервисе, фильтре, пайпе, guard (unit). Исправление бага начинается с теста, который его воспроизводит. Без теста можно оставить только правки документации и конфигов, переименования без смены поведения и пустые заглушки; если пропускаешь тест там, где он уместен, объясни почему. Как писать: скилл `writing-tests` (`.claude/skills/writing-tests/SKILL.md`), конвенции в `test/CLAUDE.md`, общий план в `docs/testing-plan.md`.
 
 ## Keeping docs current
 
