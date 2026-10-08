@@ -7,6 +7,18 @@ description: Написание и обновление автотестов (un
 
 Общий план и причины решений: `docs/testing-plan.md`. Модуль `case` тестовый и будет удалён: тесты для него не пишем и на него в примерах не опираемся. Конвенции расположения: `test/CLAUDE.md`.
 
+## Образцы (делай по их стилю)
+
+| Что пишешь                                          | Образец                                            |
+| --------------------------------------------------- | -------------------------------------------------- |
+| unit: фильтр, пайп, guard, мок `ArgumentsHost`      | `src/filters/all-exeption.filter.spec.ts`          |
+| unit: middleware                                    | `src/common/middlewares/logger.middleware.spec.ts` |
+| unit: сервис с моком внешнего модуля                | `src/prisma/prisma.service.spec.ts`                |
+| e2e без БД (заглушка-контроллер + `configureApp()`) | `test/app-setup.e2e-spec.ts`                       |
+| тесты помощников                                    | `test/helpers/helpers.e2e-spec.ts`                 |
+
+Помощники: `test/helpers/create-test-app.ts`, `assert-safe-database.ts`, `unique-id.ts`.
+
 ## Шаг 0. Решить, нужен ли тест
 
 Тест нужен, если изменилось поведение:
@@ -63,6 +75,13 @@ it.each([
 });
 ```
 
+Типичные ловушки строгого ESLint (правило «не отключай, исправь код»):
+
+- моки типизируй: `jest.fn<ReturnType, [ArgType]>()` (так в `@types/jest` проекта), а не голый `jest.fn()` с `any`;
+- `expect.any(String)` приводи к типу: `expect.any(String) as string`;
+- не передавай метод объекта в `expect(obj.method)` (правило `unbound-method`): держи мок в отдельной переменной;
+- `await` на всех промисах, в `afterAll` закрывай приложение.
+
 Для граничных значений проверяй обе стороны: максимум проходит, максимум + 1 нет.
 
 ### Unit: фильтр, пайп, guard
@@ -71,32 +90,31 @@ it.each([
 
 ### E2E
 
-Скелет (когда появятся помощники `test/helpers`, по плану `docs/testing-plan.md`, используй `createTestApp` вместо ручной сборки):
+Скелет (e2e с БД; без БД передай свои `controllers`/`providers`, см. `test/app-setup.e2e-spec.ts`):
 
 ```ts
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
-import { configureApp } from '../src/app.setup';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { createTestApp } from './helpers/create-test-app';
+import { uniqueId } from './helpers/unique-id';
 
 describe('Items (e2e)', () => {
   let app: INestApplication;
-  const id = `e2e-${randomUUID().slice(0, 8)}`; // уникальное значение для данных теста
+  let server: Parameters<typeof request>[0];
+  const id = uniqueId('e2e'); // уникальное значение для данных теста
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleRef.createNestApplication();
-    configureApp(app); // обязательно: поведение как в проде
-    await app.init();
+    // createTestApp вызывает configureApp() и проверяет, что БД локальная
+    app = await createTestApp({ imports: [AppModule] });
+    server = app.getHttpServer() as typeof server;
   });
 
   afterAll(async () => {
-    // удалить только записи с нашим id через PrismaService
+    const prisma = app.get(PrismaService);
+    // удалить только записи с нашим id через prisma
     await app.close();
   });
 });
@@ -104,8 +122,8 @@ describe('Items (e2e)', () => {
 
 Правила e2e:
 
-- Всегда `configureApp(app)`.
-- Уникальные данные на каждый прогон (учитывай лимиты длины полей), удаляем только свои записи, приложение закрываем в `afterAll`.
+- Всегда `createTestApp(...)` (внутри `configureApp()`), не собирай приложение вручную.
+- Уникальные данные через `uniqueId` (учитывай лимиты длины полей), удаляем только свои записи, приложение закрываем в `afterAll`.
 - Работает с реальной локальной БД. Никогда не запускай на production. Схема должна быть применена; `db:init`, `db:update`, `db:migrate` и `prisma db *` запускает пользователь, не ты (они закрыты в `.claude/settings.json`).
 - Проверяй статус и важные поля тела, а не весь JSON целиком (`createdAt` и подобные меняются).
 - Для каждого эндпоинта минимум: успешный путь, невалидный ввод (400), «не найдено» / конфликт, если применимо.
