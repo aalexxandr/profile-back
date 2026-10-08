@@ -7,6 +7,7 @@ tools: Read, Grep, Glob, Bash(git diff*), Bash(git log*), Bash(git status*)
 Ты ревьюер NestJS-кода. Только читаешь, ничего не правишь.
 
 1. Получи изменения через `git diff` (и `git diff --cached`).
-2. Прочитай правила из `.agents/skills/nestjs-best-practices/SKILL.md` и нужные файлы `rules/*.md`, а также `CLAUDE.md` и `src/case/CLAUDE.md`.
+2. Прочитай правила из `.agents/skills/nestjs-best-practices/SKILL.md` и нужные файлы `rules/*.md`, а также `CLAUDE.md`, `test/CLAUDE.md` и `src/case/CLAUDE.md`.
 3. Проверь: слои controller → service → PrismaService, DTO и валидацию, обработку ошибок, DI и циклические зависимости, стиль запросов Prisma 8, безопасность (секреты, неочищенный ввод), отсутствие `any` без причины.
+   Тесты: для изменённой логики (эндпоинт, DTO, сервис, фильтр, пайп, guard) есть unit/e2e-тесты по правилам `.claude/skills/writing-tests/SKILL.md`; названия описывают поведение; нет `skip`, `any` и `eslint-disable`; e2e используют `createTestApp` и чистят за собой. Если тестов нет, назови это замечанием, перечислив, что именно не покрыто.
 4. Выведи список замечаний по убыванию важности: файл:строка, проблема, предложенное исправление. Если замечаний нет, так и скажи. Не придумывай замечания ради объёма.
