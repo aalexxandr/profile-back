@@ -96,11 +96,27 @@
       "!**/*.spec.ts",
       "!generated/**",
       "!main.ts",
-      "!**/*.module.ts"
+      "!**/*.module.ts",
+      "!case/**",
+      "!app.controller.ts",
+      "!app.service.ts",
+      "!pipes/create-preview-from-image.ts",
+      "!app.setup.ts",
+      "!config/swagger.config.ts",
+      "!utils/swagger.util.ts",
+      "!prisma/enums.ts"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "watchman": false
+    "watchman": false,
+    "coverageThreshold": {
+      "global": {
+        "statements": 90,
+        "branches": 70,
+        "functions": 90,
+        "lines": 90
+      }
+    }
   },
   "engines": {
     "node": ">=24.11.0"
