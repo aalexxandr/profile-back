@@ -53,7 +53,13 @@ App-wide setup lives in `configureApp()` (`src/app.setup.ts`), not `main.ts`, so
 
 ## Tests
 
-Весь новый функционал, который стоит покрыть тестами, должен покрываться тестами в том же изменении: новый эндпоинт (e2e), новое DTO или правила валидации (unit), логика в сервисе, фильтре, пайпе, guard (unit). Исправление бага начинается с теста, который его воспроизводит. Без теста можно оставить только правки документации и конфигов, переименования без смены поведения и пустые заглушки; если пропускаешь тест там, где он уместен, объясни почему. Как писать: скилл `writing-tests` (`.claude/skills/writing-tests/SKILL.md`), конвенции в `test/CLAUDE.md`. Unit-тесты лежат рядом с кодом (`*.spec.ts`), e2e в `test/*.e2e-spec.ts`; помощники `test/helpers` (`createTestApp`, `assertSafeDatabase`, `uniqueId`); `/add-tests` пишет тесты для текущих изменений. Модуль `case` тестовый, тестов на него не пишем.
+The project is developed with **TDD**: red → green → refactor. For new functionality worth covering with tests, and for bug fixes, the test is written **before** the code: first a failing test (run it and make sure it is red for the right reason, not because of a compile error), then the minimal code to green, then refactor with green tests. A bug fix starts with a test that reproduces the bug. What to cover: a new endpoint (e2e), a new DTO or validation rules (unit), logic in a service, filter, pipe or guard (unit). Tests go in the same change as the code. A test may be skipped only for docs and config edits, renames without behavior change, and empty stubs; if you skip a test where one is appropriate, explain why. How to write them: the `writing-tests` skill (`.claude/skills/writing-tests/SKILL.md`), conventions in `test/CLAUDE.md`. Unit tests live next to the code (`*.spec.ts`), e2e in `test/*.e2e-spec.ts`; helpers in `test/helpers` (`createTestApp`, `assertSafeDatabase`, `uniqueId`); `/add-tests` writes tests for the current changes. The `case` module is a throwaway sample, no tests for it.
+
+In OpenSpec changes TDD is encoded in `openspec/config.yaml`: tasks are built as "test → implementation" pairs, and apply writes no code before a red test.
+
+## Language
+
+Talk to the user in Russian. `README.md` is in Russian. Everything else (CLAUDE.md files, skills, commands, agents, hook messages, OpenSpec artifacts and config) is written in English to save tokens.
 
 ## Keeping docs current
 

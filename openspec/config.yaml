@@ -1,32 +1,31 @@
 schema: spec-driven
 
-# Project context (optional)
-# Add only constraints that should guide OpenSpec artifacts and workflows.
-# Include constraints an agent cannot infer by reading the code.
-# Keep general project documentation and discoverable codebase facts out.
-# Example:
-#   context: |
-#     Designs and tasks must cover Windows, macOS, and Linux
-#     Write all artifacts in Spanish
+# Project context
+context: |
+  The project is developed with TDD (red -> green -> refactor): the test is written before the code.
+  Exceptions (no test): docs and config edits, renames without behavior change, empty stubs.
+  Test conventions: test/CLAUDE.md and the writing-tests skill.
+  Write all OpenSpec artifacts in English; talk to the user in Russian.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always state what is out of scope
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+# Per-artifact rules
+rules:
+  specs:
+    - Every Scenario must be verifiable: phrase it (WHEN/THEN with concrete inputs and expected result) so that a test follows directly from it
+  design:
+    - State the test level for each behavior (unit or e2e) and what needs to be mocked
+  tasks:
+    - Build tasks in TDD pairs - a task for the red test of a behavior, immediately followed by the task implementing it
+    - Do not batch all test writing into one task at the end of the list
+    - Make the last task running pnpm run check
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+# Per-operation guidance
+operations:
+  apply:
+    guidance:
+      - Work in TDD - before implementing each behavior, write the test and run it, make sure it is red for the right reason
+      - Then the minimal implementation to green, then refactor with green tests
+      - Mark a task done only after a green run of its tests
+      - If a test is skipped where one is appropriate, explain why in the final message
+  archive:
+    guidance:
+      - Before archiving, make sure pnpm run check is green and every spec scenario is covered by a test

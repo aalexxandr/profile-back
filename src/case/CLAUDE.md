@@ -1,8 +1,8 @@
-# Конвенции feature-модуля (на примере `case/`)
+# Feature module conventions (using `case/` as the example)
 
-- Слои: `*.controller.ts` (только маршрутизация, без логики) → `*.service.ts` → `PrismaService`. Контроллер не обращается к БД напрямую.
-- DTO лежат в `dto/`, это классы с декораторами class-validator и `!` у полей. Глобальный `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`, `transform`) настроен в `configureApp()`, поэтому поле без декоратора будет отклонено. Enum-ы берутся из `src/prisma/enums.ts`.
-- Новая модель БД: добавить её в `prisma/contract.prisma`, выполнить `pnpm run db:generate`, затем добавить геттер в `src/prisma/prisma.service.ts` (как `get cases()`).
-- Запросы пишутся в стиле Prisma 8 ORM: `.create({...})`, `.first({ slug })`, `.orderBy(row => row.createdAt.desc()).all()`. Не использовать `findMany`/`where`.
-- Модуль регистрируется в `AppModule`; `PrismaModule` импортируется там, где нужен доступ к БД.
-- Импорты сортируются автоматически (`simple-import-sort`); неиспользуемые удаляются линтером.
+- Layers: `*.controller.ts` (routing only, no logic) → `*.service.ts` → `PrismaService`. The controller never touches the DB directly.
+- DTOs live in `dto/`: classes with class-validator decorators and `!` on fields. The global `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`, `transform`) is set up in `configureApp()`, so a field without a decorator is rejected. Enums come from `src/prisma/enums.ts`.
+- New DB model: add it to `prisma/contract.prisma`, run `pnpm run db:generate`, then add a getter to `src/prisma/prisma.service.ts` (like `get cases()`).
+- Queries use the Prisma 8 ORM style: `.create({...})`, `.first({ slug })`, `.orderBy(row => row.createdAt.desc()).all()`. Don't use `findMany`/`where`.
+- Register the module in `AppModule`; import `PrismaModule` wherever DB access is needed.
+- Imports are sorted automatically (`simple-import-sort`); unused ones are removed by the linter.

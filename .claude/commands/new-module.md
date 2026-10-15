@@ -1,13 +1,14 @@
 ---
-description: Создать новый feature-модуль NestJS по конвенциям проекта (аргумент — имя модуля)
-argument-hint: <имя-модуля>
+description: Create a new NestJS feature module following project conventions (argument — module name)
+argument-hint: <module-name>
 ---
 
-Создай feature-модуль `$ARGUMENTS` в `src/$ARGUMENTS/` по образцу `src/case/` (прочитай `src/case/CLAUDE.md` и файлы модуля перед началом):
+Create the feature module `$ARGUMENTS` in `src/$ARGUMENTS/` modeled on `src/case/` (read `src/case/CLAUDE.md` and the module files first):
 
-1. `<name>.module.ts`, `<name>.controller.ts`, `<name>.service.ts`, `dto/create-<name>.dto.ts` с class-validator.
-2. Если нужна новая таблица: добавь модель в `prisma/contract.prisma`, выполни `pnpm run db:generate` и добавь геттер в `src/prisma/prisma.service.ts`. Миграции и `db:update`/`db:migrate` не запускай, а предложи пользователю команды.
-3. Зарегистрируй модуль в `src/app.module.ts`.
-4. Добавь тесты по скиллу `writing-tests`: unit-тест DTO (граничные значения), unit-тесты сервиса, если в нём есть логика, и e2e на эндпоинты по образцу `test/app-setup.e2e-spec.ts` (с БД, если нужна реальная Prisma; e2e запускай только при доступной локальной БД).
-5. Прогони `pnpm run check`.
-6. Если изменилась архитектура (новый модуль), обнови `CLAUDE.md` и `README.md`.
+1. Work in TDD order: write the failing tests first (see step 4), then the code that makes them pass.
+2. `<name>.module.ts`, `<name>.controller.ts`, `<name>.service.ts`, `dto/create-<name>.dto.ts` with class-validator.
+3. If a new table is needed: add the model to `prisma/contract.prisma`, run `pnpm run db:generate`, and add a getter to `src/prisma/prisma.service.ts`. Don't run migrations or `db:update`/`db:migrate`; suggest the commands to the user.
+4. Register the module in `src/app.module.ts`.
+5. Tests per the `writing-tests` skill: DTO unit test (boundary values), service unit tests if it has logic, and e2e for the endpoints modeled on `test/app-setup.e2e-spec.ts` (with DB if real Prisma is needed; run e2e only when the local DB is available).
+6. Run `pnpm run check`.
+7. If the architecture changed (new module), update `CLAUDE.md` and `README.md`.

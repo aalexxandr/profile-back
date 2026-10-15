@@ -1,12 +1,12 @@
-# Конвенции тестов
+# Test conventions
 
-- Unit-тесты: `*.spec.ts` рядом с кодом; e2e: `test/*.e2e-spec.ts` (конфиг `test/jest-e2e.json`, запуск `pnpm run test:e2e --runInBand`).
-- E2E поднимают приложение через `configureApp()` из `src/app.setup.ts`, чтобы совпадать с продом (ValidationPipe, фильтры, middleware).
-- Новый функционал, который стоит покрыть тестами, покрывается тестами в том же изменении. Как писать тесты — скилл `writing-tests`.
-- Два вида e2e: **без БД** (свои `controllers`/`providers`-заглушки поверх `configureApp()`, образец `test/app-setup.e2e-spec.ts`) и **с БД** (`AppModule` целиком). Без БД предпочтительнее, когда реальный запрос к Prisma не важен.
-- E2E с БД работают с реальной локальной БД: данные создаются с уникальным значением и удаляются в конце. Схема должна быть уже применена. Никогда не запускать на production-БД (`assertSafeDatabase` это блокирует).
-- В e2e логи заглушены; `DEBUG_TESTS=1 pnpm run test:e2e --runInBand` возвращает их (см. `test/setup-e2e.ts`).
-- Покрытие: `pnpm run test:cov` (только unit, пороги в `package.json`, проверяются в CI). Из покрытия исключены заглушки, `case/**` и файлы, которые проверяет e2e; когда в заглушке появится логика, уберите её из `collectCoverageFrom`.
-- Образцы: `src/filters/all-exeption.filter.spec.ts`, `src/prisma/prisma.service.spec.ts`, `test/app-setup.e2e-spec.ts`. Модуль `case` тестовый и будет удалён: тестов на него нет.
-- Помощники в `test/helpers/`: `createTestApp({...})` (приложение через `configureApp()`; закрывать в `afterAll`), `assertSafeDatabase` (e2e не стартуют, если `POSTGRES_URI` не локальный), `uniqueId(prefix, maxLength)` (уникальные данные).
-- Очистка в e2e с БД: удалять только свои записи (по значению из `uniqueId`) в `afterAll` через `app.get(PrismaService)`, затем `app.close()`. Общий хелпер очистки не вводим, пока нет второй модели.
+- Unit tests: `*.spec.ts` next to the code; e2e: `test/*.e2e-spec.ts` (config `test/jest-e2e.json`, run with `pnpm run test:e2e --runInBand`).
+- E2E boots the app via `configureApp()` from `src/app.setup.ts` to match production (ValidationPipe, filters, middleware).
+- TDD: write the test before the code. First a red test (make sure it fails for the right reason), then minimal code to green, then refactor. Tests go in the same change as the code. How to write tests: the `writing-tests` skill.
+- Two kinds of e2e: **without DB** (own stub `controllers`/`providers` on top of `configureApp()`, example `test/app-setup.e2e-spec.ts`) and **with DB** (whole `AppModule`). Prefer no-DB when a real Prisma query doesn't matter.
+- DB e2e uses the real local DB: data is created with a unique value and deleted at the end. The schema must already be applied. Never run against a production DB (`assertSafeDatabase` blocks it).
+- Logs are silenced in e2e; `DEBUG_TESTS=1 pnpm run test:e2e --runInBand` brings them back (see `test/setup-e2e.ts`).
+- Coverage: `pnpm run test:cov` (unit only, thresholds in `package.json`, checked in CI). Stubs, `case/**` and files covered by e2e are excluded; when a stub gains logic, remove it from `collectCoverageFrom`.
+- Examples: `src/filters/all-exeption.filter.spec.ts`, `src/prisma/prisma.service.spec.ts`, `test/app-setup.e2e-spec.ts`. The `case` module is a throwaway sample and will be removed: no tests for it.
+- Helpers in `test/helpers/`: `createTestApp({...})` (app via `configureApp()`; close it in `afterAll`), `assertSafeDatabase` (e2e won't start if `POSTGRES_URI` is not local), `uniqueId(prefix, maxLength)` (unique data).
+- DB e2e cleanup: delete only your own records (by the `uniqueId` value) in `afterAll` via `app.get(PrismaService)`, then `app.close()`. No shared cleanup helper until there is a second model.

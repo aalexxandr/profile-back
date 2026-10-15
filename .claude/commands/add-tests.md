@@ -1,13 +1,13 @@
 ---
-description: Написать тесты для текущих изменений (аргумент — необязательный путь или область)
-argument-hint: [путь-или-область]
+description: Write tests for the current changes (argument — optional path or area)
+argument-hint: [path-or-area]
 ---
 
-Напиши недостающие тесты для текущих изменений `$ARGUMENTS` (если аргумента нет, для всего `git diff` и `git diff --cached`, включая новые файлы).
+Write the missing tests for the current changes `$ARGUMENTS` (if no argument, for the whole `git diff` and `git diff --cached`, including new files).
 
-1. Прочитай скилл `.claude/skills/writing-tests/SKILL.md` и `test/CLAUDE.md`, затем образцы из скилла.
-2. Определи, что требует тестов (шаг 0 скилла). Для каждого изменённого файла реши: нужен unit, e2e или тест не нужен (и почему).
-3. Для исправления бага сначала напиши тест, убедись, что он красный, потом исправляй код.
-4. Пиши тесты по образцам, используя `test/helpers`. Модуль `case` тестовый и будет удалён: тесты для него не пиши.
-5. Прогони `pnpm run check`. e2e с БД (`pnpm run test:e2e --runInBand`) запускай, только если локальная БД доступна; иначе прямо скажи, что e2e не прогонялся.
-6. Кратко перечисли: какие тесты добавлены, где тесты не нужны и почему, что не удалось проверить.
+1. Read the skill `.claude/skills/writing-tests/SKILL.md` and `test/CLAUDE.md`, then the examples referenced in the skill.
+2. Decide what needs tests (step 0 of the skill). For each changed file decide: unit, e2e, or no test needed (and why).
+3. Work in TDD: if the code isn't written yet (new feature or bug), write the test first and make sure it is red for the right reason, and only then implement the code until green. If the code already exists without a test, add the test, temporarily break the behavior (or check against the old version) to confirm the test can fail, then restore it.
+4. Follow the examples and use `test/helpers`. The `case` module is a throwaway sample and will be removed: don't write tests for it.
+5. Run `pnpm run check`. Run DB e2e (`pnpm run test:e2e --runInBand`) only if the local DB is available; otherwise say plainly that e2e was not run.
+6. Briefly list: which tests were added, where tests aren't needed and why, and what couldn't be verified.

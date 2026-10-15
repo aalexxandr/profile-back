@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PostToolUse (Edit|Write): форматирует и линтит изменённый .ts-файл.
+# PostToolUse (Edit|Write): formats and lints the changed .ts file.
 set -uo pipefail
 
 cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0

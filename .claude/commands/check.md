@@ -1,12 +1,12 @@
 ---
-description: Прогнать typecheck, lint и тесты, исправить найденные ошибки
+description: Run typecheck, lint and tests, fix any errors found
 allowed-tools: Bash(pnpm run check), Bash(pnpm run lint:fix), Bash(pnpm run format), Bash(pnpm run typecheck), Bash(pnpm test*)
 ---
 
-Выполни `pnpm run check` (typecheck, lint и unit-тесты; e2e в него не входят и запускаются отдельно: `pnpm run test:e2e --runInBand`, нужна локальная БД, если тест её использует). Если есть ошибки:
+Run `pnpm run check` (typecheck, lint and unit tests; e2e is not included and runs separately: `pnpm run test:e2e --runInBand`, needs the local DB if the test uses it). If there are errors:
 
-1. Сначала `pnpm run lint:fix` и `pnpm run format` для автоисправимого.
-2. Остальное исправь вручную в коде, не отключая правила и не ослабляя tsconfig.
-3. Повтори `pnpm run check`, пока не будет зелёным.
+1. First `pnpm run lint:fix` and `pnpm run format` for anything auto-fixable.
+2. Fix the rest by hand in the code, without disabling rules or loosening tsconfig.
+3. Repeat `pnpm run check` until green.
 
-В конце кратко перечисли, что исправлено. Если ошибку нельзя исправить без решения пользователя, остановись и спроси.
+At the end, briefly list what was fixed. If an error can't be fixed without a decision from the user, stop and ask.

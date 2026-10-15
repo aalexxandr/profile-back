@@ -1,53 +1,60 @@
 ---
 name: writing-tests
-description: Написание и обновление автотестов (unit и e2e) для этого NestJS-проекта по его конвенциям. Использовать при добавлении нового функционала, DTO, эндпоинта, фильтра, пайпа или исправлении бага, а также когда просят написать, дополнить или починить тесты.
+description: Write and update automated tests (unit and e2e) for this NestJS project following its conventions. Use when adding new functionality, a DTO, endpoint, filter or pipe, when fixing a bug, and when asked to write, extend or repair tests.
 ---
 
-# Написание тестов в profile-back
+# Writing tests in profile-back
 
-Модуль `case` тестовый и будет удалён: тесты для него не пишем и на него в примерах не опираемся. Конвенции расположения: `test/CLAUDE.md`.
+The `case` module is a throwaway sample and will be removed: don't write tests for it and don't rely on it in examples. Layout conventions: `test/CLAUDE.md`.
 
-## Образцы (делай по их стилю)
+## Examples (follow their style)
 
-| Что пишешь                                          | Образец                                            |
+| What you write                                      | Example                                            |
 | --------------------------------------------------- | -------------------------------------------------- |
-| unit: фильтр, пайп, guard, мок `ArgumentsHost`      | `src/filters/all-exeption.filter.spec.ts`          |
+| unit: filter, pipe, guard, `ArgumentsHost` mock     | `src/filters/all-exeption.filter.spec.ts`          |
 | unit: middleware                                    | `src/common/middlewares/logger.middleware.spec.ts` |
-| unit: сервис с моком внешнего модуля                | `src/prisma/prisma.service.spec.ts`                |
-| e2e без БД (заглушка-контроллер + `configureApp()`) | `test/app-setup.e2e-spec.ts`                       |
-| тесты помощников                                    | `test/helpers/helpers.e2e-spec.ts`                 |
+| unit: service with a mocked external module         | `src/prisma/prisma.service.spec.ts`                |
+| e2e without DB (stub controller + `configureApp()`) | `test/app-setup.e2e-spec.ts`                       |
+| helper tests                                        | `test/helpers/helpers.e2e-spec.ts`                 |
 
-Помощники: `test/helpers/create-test-app.ts`, `assert-safe-database.ts`, `unique-id.ts`.
+Helpers: `test/helpers/create-test-app.ts`, `assert-safe-database.ts`, `unique-id.ts`.
 
-## Шаг 0. Решить, нужен ли тест
+## Step 0. Decide whether a test is needed
 
-Тест нужен, если изменилось поведение:
+A test is needed when behavior changes:
 
-- новый или изменённый эндпоинт → e2e;
-- новое или изменённое DTO / правила валидации → unit;
-- логика в сервисе, фильтре, пайпе, guard, interceptor → unit;
-- исправление бага → сначала тест, воспроизводящий баг (он красный), потом исправление.
+- new or changed endpoint → e2e;
+- new or changed DTO / validation rules → unit;
+- logic in a service, filter, pipe, guard, interceptor → unit;
+- bug fix → first a test that reproduces the bug (it is red), then the fix.
 
-Тест не нужен для правок документации и конфигов, переименований без смены поведения, пустых заглушек. Если пропускаешь тест там, где он уместен, скажи об этом пользователю и почему.
+Workflow is TDD (red → green → refactor):
 
-## Шаг 1. Выбрать уровень
+1. **Red:** write one test for the expected behavior and run it. It must fail for the right reason (wrong result or status), not because of a compile error or typo. If it needs a symbol that doesn't exist yet, create an empty stub first.
+2. **Green:** write the minimum code to make the test pass. Don't add behavior that isn't covered by a test.
+3. **Refactor:** improve the code while tests are green, re-running them after each step.
+4. Repeat, one behavior per cycle.
 
-| Что проверяем                                                 | Уровень | Файл                                     |
-| ------------------------------------------------------------- | ------- | ---------------------------------------- |
-| DTO, фильтр, пайп, чистая функция, сервис с ветвлением        | unit    | `src/<путь>/<имя>.spec.ts` рядом с кодом |
-| Эндпоинт целиком (валидация, контроллер, БД, ответ об ошибке) | e2e     | `test/<модуль>.e2e-spec.ts`              |
+A test is not needed for docs and config edits, renames without behavior change, or empty stubs. If you skip a test where one is appropriate, tell the user and say why.
 
-Тонкий сервис-прокладка к Prisma отдельным unit-тестом не покрываем: цепочку ORM Prisma 8 (`.orderBy(...).all()`) не мокаем, её проверяет e2e на реальной БД.
+## Step 1. Pick the level
 
-## Шаг 2. Написать тест
+| What we check                                               | Level | File                                     |
+| ----------------------------------------------------------- | ----- | ---------------------------------------- |
+| DTO, filter, pipe, pure function, service with branching    | unit  | `src/<path>/<name>.spec.ts` next to code |
+| Whole endpoint (validation, controller, DB, error response) | e2e   | `test/<module>.e2e-spec.ts`              |
 
-Общие правила:
+A thin pass-through service over Prisma gets no separate unit test: we don't mock the Prisma 8 ORM chain (`.orderBy(...).all()`); e2e against a real DB covers it.
 
-- Название описывает поведение: `возвращает 404, если кейс не найден`. Один тест проверяет одну вещь.
-- Структура Arrange / Act / Assert. Тесты независимы и не рассчитывают на порядок.
-- Данные строим фабрикой с переопределениями (`validItem({ name: '' })`), а не копируем объекты целиком.
-- Без `any`, `eslint-disable`, `it.skip` без причины. Неиспользуемые аргументы начинаются с `_`. ESLint строгий (`no-floating-promises`, `no-unsafe-argument`): `await` на всех промисах.
-- Не ослабляй проверки ради зелёного теста. Если тест выявил баг в коде, исправь код или сообщи пользователю.
+## Step 2. Write the test
+
+General rules:
+
+- The name describes behavior: `returns 404 when the case is not found`. One test checks one thing.
+- Arrange / Act / Assert structure. Tests are independent and don't rely on order.
+- Build data with a factory plus overrides (`validItem({ name: '' })`) instead of copying whole objects.
+- No `any`, `eslint-disable`, or `it.skip` without a reason. Unused arguments start with `_`. ESLint is strict (`no-floating-promises`, `no-unsafe-argument`): `await` every promise.
+- Don't weaken assertions to get a green test. If a test exposes a bug in the code, fix the code or tell the user.
 
 ### Unit: DTO
 
@@ -55,9 +62,9 @@ description: Написание и обновление автотестов (un
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
-import { CreateItemDto } from './create-item.dto'; // имя примера, подставь своё
+import { CreateItemDto } from './create-item.dto'; // example name, substitute your own
 
-// фабрика валидного объекта: каждый тест меняет одно поле
+// valid-object factory: each test changes one field
 const validItem = (overrides: Record<string, unknown> = {}) => ({
   name: 'Name',
   tags: ['nestjs'],
@@ -68,29 +75,29 @@ const errorsFor = (data: object) =>
   validate(plainToInstance(CreateItemDto, data));
 
 it.each([
-  ['слишком длинное имя', { name: 'a'.repeat(101) }],
-  ['пустой список tags', { tags: [] }],
-])('отклоняет: %s', async (_name, overrides) => {
+  ['name too long', { name: 'a'.repeat(101) }],
+  ['empty tags list', { tags: [] }],
+])('rejects: %s', async (_name, overrides) => {
   expect(await errorsFor(validItem(overrides))).not.toHaveLength(0);
 });
 ```
 
-Типичные ловушки строгого ESLint (правило «не отключай, исправь код»):
+Typical strict-ESLint traps (rule: don't disable, fix the code):
 
-- моки типизируй: `jest.fn<ReturnType, [ArgType]>()` (так в `@types/jest` проекта), а не голый `jest.fn()` с `any`;
-- `expect.any(String)` приводи к типу: `expect.any(String) as string`;
-- не передавай метод объекта в `expect(obj.method)` (правило `unbound-method`): держи мок в отдельной переменной;
-- `await` на всех промисах, в `afterAll` закрывай приложение.
+- type your mocks: `jest.fn<ReturnType, [ArgType]>()` (that's the signature in the project's `@types/jest`), not a bare `jest.fn()` with `any`;
+- cast `expect.any(String)`: `expect.any(String) as string`;
+- don't pass an object method to `expect(obj.method)` (`unbound-method` rule): keep the mock in a separate variable;
+- `await` every promise, close the app in `afterAll`.
 
-Для граничных значений проверяй обе стороны: максимум проходит, максимум + 1 нет.
+For boundary values check both sides: the maximum passes, maximum + 1 doesn't.
 
-### Unit: фильтр, пайп, guard
+### Unit: filter, pipe, guard
 
-Мокай только внешнюю границу (`ArgumentsHost`, `Response`, `PrismaService`). Логгер заглушай: `jest.spyOn(Logger.prototype, 'error').mockImplementation()`. Для сервисов собирай модуль через `Test.createTestingModule` с `{ provide: PrismaService, useValue: {...} }`, типизируя мок, а не приводя к `any`.
+Mock only the external boundary (`ArgumentsHost`, `Response`, `PrismaService`). Silence the logger: `jest.spyOn(Logger.prototype, 'error').mockImplementation()`. For services build the module with `Test.createTestingModule` and `{ provide: PrismaService, useValue: {...} }`, typing the mock rather than casting to `any`.
 
 ### E2E
 
-Скелет (e2e с БД; без БД передай свои `controllers`/`providers`, см. `test/app-setup.e2e-spec.ts`):
+Skeleton (DB e2e; without a DB pass your own `controllers`/`providers`, see `test/app-setup.e2e-spec.ts`):
 
 ```ts
 import { INestApplication } from '@nestjs/common';
@@ -104,42 +111,42 @@ import { uniqueId } from './helpers/unique-id';
 describe('Items (e2e)', () => {
   let app: INestApplication;
   let server: Parameters<typeof request>[0];
-  const id = uniqueId('e2e'); // уникальное значение для данных теста
+  const id = uniqueId('e2e'); // unique value for the test's data
 
   beforeAll(async () => {
-    // createTestApp вызывает configureApp() и проверяет, что БД локальная
+    // createTestApp calls configureApp() and checks that the DB is local
     app = await createTestApp({ imports: [AppModule] });
     server = app.getHttpServer() as typeof server;
   });
 
   afterAll(async () => {
     const prisma = app.get(PrismaService);
-    // удалить только записи с нашим id через prisma
+    // delete only records with our id via prisma
     await app.close();
   });
 });
 ```
 
-Правила e2e:
+E2E rules:
 
-- Всегда `createTestApp(...)` (внутри `configureApp()`), не собирай приложение вручную.
-- Уникальные данные через `uniqueId` (учитывай лимиты длины полей), удаляем только свои записи, приложение закрываем в `afterAll`.
-- Работает с реальной локальной БД. Никогда не запускай на production. Схема должна быть применена; `db:init`, `db:update`, `db:migrate` и `prisma db *` запускает пользователь, не ты (они закрыты в `.claude/settings.json`).
-- Проверяй статус и важные поля тела, а не весь JSON целиком (`createdAt` и подобные меняются).
-- Для каждого эндпоинта минимум: успешный путь, невалидный ввод (400), «не найдено» / конфликт, если применимо.
+- Always `createTestApp(...)` (it calls `configureApp()` inside); don't assemble the app by hand.
+- Unique data via `uniqueId` (mind field length limits), delete only your own records, close the app in `afterAll`.
+- Runs against the real local DB. Never run on production. The schema must be applied; `db:init`, `db:update`, `db:migrate` and `prisma db *` are run by the user, not you (they are denied in `.claude/settings.json`).
+- Assert the status and important body fields, not the whole JSON (`createdAt` and the like change).
+- For each endpoint at minimum: the happy path, invalid input (400), not found / conflict where applicable.
 
-## Шаг 3. Запустить
+## Step 3. Run
 
 ```bash
-pnpm test -- <путь-к-файлу>          # unit
-pnpm run test:e2e --runInBand        # e2e (нужна БД)
-pnpm run check                       # typecheck + lint + unit, перед завершением
+pnpm test -- <path-to-file>          # unit
+pnpm run test:e2e --runInBand        # e2e (needs the DB)
+pnpm run check                       # typecheck + lint + unit, before finishing
 ```
 
-Если e2e запустить нельзя (нет БД), скажи пользователю явно, что e2e не прогонялся, и не называй работу проверенной.
+If e2e can't be run (no DB), tell the user explicitly that e2e was not run, and don't call the work verified.
 
-## Шаг 4. Закрыть работу
+## Step 4. Wrap up
 
-- Чек-лист: тест красный до фикса (для багов), зелёный после; нет `skip`/`any`; `pnpm run check` зелёный.
-- Если изменилась архитектура или команды, обнови `CLAUDE.md` и `README.md`.
-- Коммит в формате Conventional Commits: `test(<scope>): ...` или `fix(<scope>): ...` вместе с тестом.
+- Checklist: the test was red before the implementation or fix and green after; no `skip`/`any`; `pnpm run check` is green.
+- If the architecture or commands changed, update `CLAUDE.md` and `README.md`.
+- Commit in Conventional Commits format: `test(<scope>): ...` or `fix(<scope>): ...` together with the test.

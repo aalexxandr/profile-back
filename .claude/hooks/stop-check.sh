@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop: не даёт завершить работу при ошибках типов или линтера.
+# Stop: blocks finishing while typecheck, lint or unit tests fail.
 set -uo pipefail
 
 cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0
@@ -20,12 +20,12 @@ if ! out=$(pnpm run --silent test 2>&1); then
   exit 2
 fi
 
-# Напоминание: код в src изменён, а тестов в изменениях нет. Срабатывает один
-# раз (см. stop_hook_active выше); осознанный отказ допустим, если объяснить.
+# Reminder: src code changed but there are no tests in the changes. Fires once
+# (see stop_hook_active above); a deliberate skip is fine if explained.
 changed=$(git status --porcelain -uall 2>/dev/null | grep -vE '^( D|D )' | cut -c4- | sed 's/.* -> //')
 code=$(printf '%s\n' "$changed" | grep -E '^src/.*\.ts$' | grep -vE '\.spec\.ts$|\.module\.ts$|^src/main\.ts$|^src/generated/')
 tests=$(printf '%s\n' "$changed" | grep -E '\.(e2e-)?spec\.ts$')
 if [ -n "$code" ] && [ -z "$tests" ]; then
-  printf 'Изменён код в src, но тестов в изменениях нет:\n%s\n\nНапиши тесты по скиллу writing-tests (или команде /add-tests). Если тест не нужен (документация, конфиг, рефакторинг без смены поведения, заглушка), коротко объясни почему и завершай работу.\n' "$code" >&2
+  printf 'Code in src changed but there are no tests in the changes:\n%s\n\nWrite tests per the writing-tests skill (or the /add-tests command). If no test is needed (docs, config, refactor without behavior change, stub), briefly explain why and finish.\n' "$code" >&2
   exit 2
 fi
