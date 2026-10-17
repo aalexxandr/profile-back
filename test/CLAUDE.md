@@ -6,7 +6,9 @@
 - Two kinds of e2e: **without DB** (own stub `controllers`/`providers` on top of `configureApp()`, example `test/app-setup.e2e-spec.ts`) and **with DB** (whole `AppModule`). Prefer no-DB when a real Prisma query doesn't matter.
 - DB e2e uses the real local DB: data is created with a unique value and deleted at the end. The schema must already be applied. Never run against a production DB (`assertSafeDatabase` blocks it).
 - Logs are silenced in e2e; `DEBUG_TESTS=1 pnpm run test:e2e --runInBand` brings them back (see `test/setup-e2e.ts`).
-- Coverage: `pnpm run test:cov` (unit only, thresholds in `package.json`, checked in CI). Stubs, `case/**` and files covered by e2e are excluded; when a stub gains logic, remove it from `collectCoverageFrom`.
-- Examples: `src/filters/all-exeption.filter.spec.ts`, `src/prisma/prisma.service.spec.ts`, `test/app-setup.e2e-spec.ts`. The `case` module is a throwaway sample and will be removed: no tests for it.
+- Coverage: `pnpm run test:cov` (unit only, thresholds in `package.json`, checked in CI). Stubs, controllers/modules and files covered by e2e are excluded; when a stub gains logic, remove it from `collectCoverageFrom`.
+- Examples: `src/filters/all-exeption.filter.spec.ts`, `src/prisma/prisma.service.spec.ts`, `test/app-setup.e2e-spec.ts`. DB e2e examples: `test/case-catalog.e2e-spec.ts`, `test/case-management.e2e-spec.ts`.
 - Helpers in `test/helpers/`: `createTestApp({...})` (app via `configureApp()`; close it in `afterAll`), `assertSafeDatabase` (e2e won't start if `POSTGRES_URI` is not local), `uniqueId(prefix, maxLength)` (unique data).
 - DB e2e cleanup: delete only your own records (by the `uniqueId` value) in `afterAll` via `app.get(PrismaService)`, then `app.close()`. No shared cleanup helper until there is a second model.
+- `test/setup-e2e.ts` replaces the global `structuredClone`: jest exposes Node's native one, which creates objects in another realm, and Prisma 8 then drops column type params (e.g. `pg/enum: typeName must be a string`). Without the replacement, any DB write of an enum column fails under jest (plain Node and production are fine).
+- Seed DB e2e data with `PrismaService.cases.create(...)` and clean it with `.whereUnique({ slug }).delete()`; the list endpoint is shared with other rows, so filter results by your own `uniqueId` prefix.
