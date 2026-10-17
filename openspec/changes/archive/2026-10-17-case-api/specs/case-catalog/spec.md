@@ -42,18 +42,18 @@ Defines the public, read-only view of the portfolio's cases: a compact list for 
 
 ### Requirement: Return case detail by slug
 
-`GET /cases/:slug` SHALL return the extended view of a published case: `slug`, `name`, `category`, `stack`, `shortDescription`, `description`, `role`, `projectLink`, `company`, `teamSize`, `period` and `achievements`. `period` MUST be an object `{ startedAt, endedAt }`, and each achievement MUST be `{ title, description, metric }`.
+`GET /cases/:slug` SHALL return the extended view of a published case: `slug`, `name`, `category`, `stack`, `shortDescription`, `description`, `role`, `projectLink`, `company`, `teamSize`, `startedAt`, `endedAt` and `achievements`. `startedAt` and `endedAt` MUST be top-level ISO dates (`YYYY-MM-DD`), with `endedAt` being `null` while the work is ongoing; there is no nested `period` object. Each achievement MUST be `{ title, description, metric }`.
 
 #### Scenario: Detail of a published case
 
 - **WHEN** a published case with slug `spectre` exists and a client requests `GET /cases/spectre`
 - **THEN** the response is `200` with all the fields listed above
-- **AND** the response has no `published`, `sortOrder`, `createdAt` or `updatedAt`
+- **AND** the response has no `published`, `sortOrder`, `createdAt`, `updatedAt` or `period`
 
 #### Scenario: Optional fields are null, not omitted
 
 - **WHEN** a published case has no `company`, no `teamSize` and no end date, and a client requests its detail
-- **THEN** `company` is `null`, `teamSize` is `null` and `period.endedAt` is `null`
+- **THEN** `company` is `null`, `teamSize` is `null` and `endedAt` is `null`
 
 ### Requirement: Hide unpublished and unknown cases
 

@@ -1,10 +1,10 @@
-# Spec Delta
+# case-management Specification
 
 ## Purpose
 
 Defines how cases are created, changed and removed through the API, including the validation rules for every case field and the guarantees about slug identity.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Create a case
 
@@ -14,12 +14,12 @@ Defines how cases are created, changed and removed through the API, including th
 
 - **WHEN** a client sends `POST /cases` with all required fields and without `company`, `teamSize`, `endedAt`, `published` and `sortOrder`
 - **THEN** the response is `201` and contains the submitted values
-- **AND** `company`, `teamSize` and `period.endedAt` are `null`
+- **AND** `company`, `teamSize` and `endedAt` are `null`
 - **AND** the case does not appear in `GET /cases`
 
 #### Scenario: Create a published case with optional fields
 
-- **WHEN** a client sends `POST /cases` with `published: true`, `company: "Acme"`, `teamSize: 5`, `sortOrder: 3` and a valid period
+- **WHEN** a client sends `POST /cases` with `published: true`, `company: "Acme"`, `teamSize: 5`, `sortOrder: 3` and valid `startedAt` and `endedAt` dates
 - **THEN** the response is `201` and the case appears in `GET /cases`
 
 #### Scenario: Duplicate slug
