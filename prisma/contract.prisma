@@ -1,5 +1,11 @@
 // use prisma-8
 
+type Achievement {
+  title       String
+  description String
+  metric      String
+}
+
 model Case {
   slug             String @id
   name             String
@@ -9,7 +15,13 @@ model Case {
   shortDescription String @map("short_description")
   description      String
   role             pg.enum(Role)
-  achievements     String[]
+  achievements     Achievement[]
+  company          String?
+  teamSize         Int? @map("team_size")
+  startedAt        DateString @map("started_at")
+  endedAt          DateString? @map("ended_at")
+  sortOrder        Int @default(0) @map("sort_order")
+  published        Boolean @default(false)
   createdAt        TimestamptzJsDate @default(now()) @map("created_at")
   updatedAt        temporal.updatedAtJsDate() @map("updated_at")
 

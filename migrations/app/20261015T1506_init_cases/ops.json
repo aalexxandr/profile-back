@@ -1,0 +1,80 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "createNativeEnumType.Role",
+    "label": "Create enum type \"Role\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "type",
+        "name": "Role"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create enum type \"Role\"",
+        "sql": "CREATE TYPE \"public\".\"Role\" AS ENUM ('FRONTEND', 'FULLSTACK')",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.cases",
+    "label": "Create table \"cases\"",
+    "summary": "Creates table \"cases\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "cases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"cases\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cases\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"cases\"",
+        "sql": "CREATE TABLE \"public\".\"cases\" (\n  \"achievements\" jsonb NOT NULL,\n  \"category\" text NOT NULL,\n  \"company\" text,\n  \"created_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"description\" text NOT NULL,\n  \"ended_at\" date,\n  \"name\" text NOT NULL,\n  \"project_link\" text NOT NULL,\n  \"published\" bool DEFAULT false NOT NULL,\n  \"role\" \"Role\" NOT NULL,\n  \"short_description\" text NOT NULL,\n  \"slug\" text NOT NULL,\n  \"sort_order\" int4 DEFAULT 0 NOT NULL,\n  \"stack\" text[] NOT NULL,\n  \"started_at\" date NOT NULL,\n  \"team_size\" int4,\n  \"updated_at\" timestamptz NOT NULL,\n  PRIMARY KEY (\"slug\"),\n  CONSTRAINT \"cases_stack_elem_not_null_e2a6c8b5\" CHECK (array_position(\"stack\", NULL) IS NULL)\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"cases\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cases\""
+        ]
+      }
+    ]
+  }
+]
