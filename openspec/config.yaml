@@ -10,13 +10,14 @@ context: |
 # Per-artifact rules
 rules:
   specs:
-    - Every Scenario must be verifiable: phrase it (WHEN/THEN with concrete inputs and expected result) so that a test follows directly from it
+    - 'Every Scenario must be verifiable: phrase it (WHEN/THEN with concrete inputs and expected result) so that a test follows directly from it'
   design:
     - State the test level for each behavior (unit or e2e) and what needs to be mocked
   tasks:
     - Build tasks in TDD pairs - a task for the red test of a behavior, immediately followed by the task implementing it
     - Do not batch all test writing into one task at the end of the list
     - Make the last task running pnpm run check
+    - Tasks that add or change an endpoint, a DTO field or a response status must include its Swagger documentation (see CLAUDE.md, section API documentation) and a test of the generated document
 
 # Per-operation guidance
 operations:

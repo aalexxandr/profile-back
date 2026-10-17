@@ -86,6 +86,24 @@ describe('AllExceptionFilter', () => {
     expect(status).toHaveBeenCalledWith(500);
   });
 
+  it('возвращает 409 для нарушения уникальности в БД, не раскрывая детали', () => {
+    const { host, status, json } = createHost('/cases');
+    const dbError = Object.assign(
+      new Error('duplicate key value violates unique constraint "cases_pkey"'),
+      { sqlState: '23505' },
+    );
+
+    filter.catch(dbError, host);
+
+    expect(status).toHaveBeenCalledWith(409);
+    expect(json).toHaveBeenCalledWith({
+      status: 409,
+      message: 'Resource already exists',
+      timestamp: expect.any(String) as string,
+      path: '/cases',
+    });
+  });
+
   it('пишет ошибку в лог', () => {
     const { host } = createHost();
 

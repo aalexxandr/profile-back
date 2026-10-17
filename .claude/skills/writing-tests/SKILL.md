@@ -5,17 +5,21 @@ description: Write and update automated tests (unit and e2e) for this NestJS pro
 
 # Writing tests in profile-back
 
-The `case` module is a throwaway sample and will be removed: don't write tests for it and don't rely on it in examples. Layout conventions: `test/CLAUDE.md`.
+Layout conventions: `test/CLAUDE.md`. The `case` module is the reference for service and serialization unit tests and DB e2e.
 
 ## Examples (follow their style)
 
-| What you write                                      | Example                                            |
-| --------------------------------------------------- | -------------------------------------------------- |
-| unit: filter, pipe, guard, `ArgumentsHost` mock     | `src/filters/all-exeption.filter.spec.ts`          |
-| unit: middleware                                    | `src/common/middlewares/logger.middleware.spec.ts` |
-| unit: service with a mocked external module         | `src/prisma/prisma.service.spec.ts`                |
-| e2e without DB (stub controller + `configureApp()`) | `test/app-setup.e2e-spec.ts`                       |
-| helper tests                                        | `test/helpers/helpers.e2e-spec.ts`                 |
+| What you write                                      | Example                                                                           |
+| --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| unit: filter, pipe, guard, `ArgumentsHost` mock     | `src/filters/all-exeption.filter.spec.ts`                                         |
+| unit: middleware                                    | `src/common/middlewares/logger.middleware.spec.ts`                                |
+| unit: service with a mocked external module         | `src/prisma/prisma.service.spec.ts`                                               |
+| unit: service with stubbed `PrismaService`          | `src/case/case.service.spec.ts`                                                   |
+| unit: DTO validation, response serialization        | `src/case/dto/create-case.dto.spec.ts`, `src/case/dto/case-serialization.spec.ts` |
+| e2e with DB (`AppModule`, real queries)             | `test/case-management.e2e-spec.ts`                                                |
+| e2e without DB: the generated Swagger document      | `test/api-docs.e2e-spec.ts`                                                       |
+| e2e without DB (stub controller + `configureApp()`) | `test/app-setup.e2e-spec.ts`                                                      |
+| helper tests                                        | `test/helpers/helpers.e2e-spec.ts`                                                |
 
 Helpers: `test/helpers/create-test-app.ts`, `assert-safe-database.ts`, `unique-id.ts`.
 
