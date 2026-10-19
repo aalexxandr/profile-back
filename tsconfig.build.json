@@ -4,7 +4,7 @@
   "exclude": ["node_modules", "test", "dist", "**/*.spec.ts"],
   "compilerOptions": {
     "rootDir": "./src",
-    "types": ["node"],
+    "types": ["node", "multer"],
     "tsBuildInfoFile": "./dist/tsconfig.build.tsbuildinfo"
   }
 }

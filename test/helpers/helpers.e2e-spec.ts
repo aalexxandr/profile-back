@@ -1,5 +1,34 @@
 import { assertSafeDatabase } from './assert-safe-database';
+import { InMemoryStorage } from './in-memory-storage';
 import { uniqueId } from './unique-id';
+
+describe('InMemoryStorage', () => {
+  it('stores an object with its content type and reports it', async () => {
+    const storage = new InMemoryStorage();
+
+    await storage.put('cases/a/b.webp', Buffer.from('x'), 'image/webp');
+
+    expect(storage.has('cases/a/b.webp')).toBe(true);
+    expect(storage.keys()).toEqual(['cases/a/b.webp']);
+    expect(storage.get('cases/a/b.webp')?.contentType).toBe('image/webp');
+  });
+
+  it('removes an object, and removing a missing one is harmless', async () => {
+    const storage = new InMemoryStorage();
+    await storage.put('k', Buffer.alloc(1), 'image/webp');
+
+    await storage.delete('k');
+    await storage.delete('k');
+
+    expect(storage.has('k')).toBe(false);
+  });
+
+  it('builds an absolute public URL like the real service', () => {
+    expect(
+      new InMemoryStorage('https://cdn.test').publicUrl('cases/a.webp'),
+    ).toBe('https://cdn.test/cases/a.webp');
+  });
+});
 
 // Тесты самих помощников; БД не нужна.
 describe('assertSafeDatabase', () => {

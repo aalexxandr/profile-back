@@ -1,0 +1,86 @@
+[
+  {
+    "id": "column.public.cases.blur_image",
+    "label": "Add column \"blur_image\" to \"cases\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "blur_image",
+        "table": "cases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"blur_image\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "blur_image"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"blur_image\"",
+        "sql": "ALTER TABLE \"public\".\"cases\" ADD COLUMN \"blur_image\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"blur_image\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "blur_image"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.cases.image_key",
+    "label": "Add column \"image_key\" to \"cases\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "image_key",
+        "table": "cases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"image_key\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "image_key"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"image_key\"",
+        "sql": "ALTER TABLE \"public\".\"cases\" ADD COLUMN \"image_key\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"image_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "image_key"
+        ]
+      }
+    ]
+  }
+]

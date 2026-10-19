@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,9 +9,15 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   SerializeOptions,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
@@ -36,6 +43,9 @@ const SLUG_PARAM = {
   example: 'spectre',
 } as const;
 
+/** Larger uploads are refused with 413 before they are processed. */
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
 @ApiTags('Cases')
 @Controller('cases')
 export class CaseController {
@@ -45,7 +55,7 @@ export class CaseController {
   @ApiOperation({
     summary: 'Create a case',
     description:
-      'Creates a case. Unless `published: true` is sent it is a draft: it is not shown in the public list and its detail returns 404. The slug must be unique.',
+      'Creates a case. Unless `published: true` is sent it is a draft: it is not shown in the public list and its detail returns 404. The slug must be unique. A new case has no picture; upload one with `PUT /cases/{slug}/image`.',
   })
   @ApiCreatedResponse({ type: CaseDetailDto, description: 'The created case' })
   @ApiErrorResponse(
@@ -62,7 +72,7 @@ export class CaseController {
   @ApiOperation({
     summary: 'List published cases',
     description:
-      'Returns the published cases in the compact form used on the list page, ordered by `sortOrder` ascending and, within the same `sortOrder`, newest first. Drafts are never included.',
+      'Returns the published cases in the compact form used on the list page, ordered by `sortOrder` ascending and, within the same `sortOrder`, newest first. Drafts are never included. Every item carries `image` and `blurImage` (both null for a case without a picture).',
   })
   @ApiOkResponse({
     type: [CaseListItemDto],
@@ -91,7 +101,7 @@ export class CaseController {
   @ApiOperation({
     summary: 'Update a case',
     description:
-      'Partial update: only the fields that are sent change, the rest stay as they are. Works for drafts as well. The slug cannot be changed.',
+      'Partial update: only the fields that are sent change, the rest stay as they are. Works for drafts as well. The slug cannot be changed, and neither can the picture: use `PUT /cases/{slug}/image` for that.',
   })
   @ApiParam(SLUG_PARAM)
   @ApiOkResponse({ type: CaseDetailDto, description: 'The updated case' })
@@ -109,12 +119,76 @@ export class CaseController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete a case',
-    description: 'Removes a case for good, whether it is published or a draft.',
+    description:
+      'Removes a case for good, whether it is published or a draft. Its stored picture is removed as well.',
   })
   @ApiParam(SLUG_PARAM)
   @ApiNoContentResponse({ description: 'The case was deleted' })
   @ApiErrorResponse(404, 'Unknown case')
   deleteCase(@Param('slug') slug: string) {
     return this.caseService.deleteCase(slug);
+  }
+
+  @Put(':slug/image')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    required: true,
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description:
+            'The picture: JPEG, PNG or WebP (recognised by content, not by name), up to 10 MB',
+        },
+      },
+    },
+  })
+  @ApiOperation({
+    summary: 'Upload the picture of a case',
+    description:
+      'Sets or replaces the picture of a case, drafts included. Send one file in the multipart field `file`. The server re-encodes it to a real WebP (at most 1920 px wide, never enlarged, EXIF orientation applied, metadata removed) and generates the blurred placeholder itself, so only one version is ever uploaded. The response is the case detail with the new `image` URL and `blurImage` data URI. A previous picture is removed from the storage. Uploading the same file again changes nothing.',
+  })
+  @ApiParam(SLUG_PARAM)
+  @ApiOkResponse({
+    type: CaseDetailDto,
+    description: 'The case with its new picture',
+  })
+  @ApiErrorResponse(
+    400,
+    'The `file` field is missing, or the file is not a valid JPEG, PNG or WebP image',
+  )
+  @ApiErrorResponse(404, 'Unknown case')
+  @ApiErrorResponse(413, 'The file is larger than 10 MB')
+  @SerializeOptions(DETAIL)
+  setImage(
+    @Param('slug') slug: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    if (!file) {
+      throw new BadRequestException(
+        'The field "file" with a picture is required',
+      );
+    }
+    return this.caseService.setImage(slug, file.buffer);
+  }
+
+  @Delete(':slug/image')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Remove the picture of a case',
+    description:
+      'Clears `image` and `blurImage` of the case and removes the stored file. Repeating the call for a case that has no picture is harmless and answers 204 as well.',
+  })
+  @ApiParam(SLUG_PARAM)
+  @ApiNoContentResponse({ description: 'The case has no picture now' })
+  @ApiErrorResponse(404, 'Unknown case')
+  removeImage(@Param('slug') slug: string) {
+    return this.caseService.removeImage(slug);
   }
 }

@@ -8,6 +8,10 @@ import { uniqueId } from './helpers/unique-id';
 
 type Body = Record<string, unknown>;
 
+// the fake storage that `createTestApp` plugs in builds URLs on this base
+const STORAGE_URL = 'https://storage.test';
+const PIC_KEY = 'cases/example/ab12cd34ef56ab78.webp';
+
 describe('Case catalog (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -79,13 +83,38 @@ describe('Case catalog (e2e)', () => {
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
         expect(Object.keys(item).sort()).toEqual([
+          'blurImage',
           'category',
+          'image',
           'name',
           'shortDescription',
           'slug',
           'stack',
         ]);
       }
+    });
+
+    it('returns null picture fields for a case without a picture', async () => {
+      const slug = await seed('nopic');
+
+      const item = (await listOurs()).find((i) => i.slug === slug);
+
+      expect(item).toMatchObject({ image: null, blurImage: null });
+    });
+
+    it('returns the absolute picture URL and the placeholder, never the key', async () => {
+      const slug = await seed('pic', {
+        imageKey: PIC_KEY,
+        blurImage: 'data:image/webp;base64,AAAA',
+      });
+
+      const item = (await listOurs()).find((i) => i.slug === slug);
+
+      expect(item).toMatchObject({
+        image: `${STORAGE_URL}/${PIC_KEY}`,
+        blurImage: 'data:image/webp;base64,AAAA',
+      });
+      expect(item).not.toHaveProperty('imageKey');
     });
 
     it('puts a lower sortOrder first', async () => {
@@ -138,10 +167,12 @@ describe('Case catalog (e2e)', () => {
 
       expect(Object.keys(body).sort()).toEqual([
         'achievements',
+        'blurImage',
         'category',
         'company',
         'description',
         'endedAt',
+        'image',
         'name',
         'projectLink',
         'role',
@@ -171,7 +202,24 @@ describe('Case catalog (e2e)', () => {
         company: null,
         teamSize: null,
         endedAt: null,
+        image: null,
+        blurImage: null,
       });
+    });
+
+    it('returns the absolute picture URL and the placeholder of a case with a picture', async () => {
+      const slug = await seed('detail-pic', {
+        imageKey: PIC_KEY,
+        blurImage: 'data:image/webp;base64,AAAA',
+      });
+
+      const res = await request(server).get(`/cases/${slug}`).expect(200);
+
+      expect(res.body).toMatchObject({
+        image: `${STORAGE_URL}/${PIC_KEY}`,
+        blurImage: 'data:image/webp;base64,AAAA',
+      });
+      expect(res.body).not.toHaveProperty('imageKey');
     });
 
     it('responds 404 for an unknown slug', async () => {

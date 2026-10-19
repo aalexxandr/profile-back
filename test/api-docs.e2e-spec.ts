@@ -7,6 +7,10 @@ import { createTestApp } from './helpers/create-test-app';
 
 interface SchemaProperty {
   type?: string;
+  format?: string;
+  nullable?: boolean;
+  description?: string;
+  example?: unknown;
   maxLength?: number;
   minimum?: number;
   pattern?: string;
@@ -14,6 +18,7 @@ interface SchemaProperty {
 }
 
 interface Schema {
+  type?: string;
   properties?: Record<string, SchemaProperty>;
   required?: string[];
 }
@@ -31,6 +36,7 @@ interface Operation {
   summary?: string;
   description?: string;
   parameters?: Parameter[];
+  requestBody?: { content?: Record<string, { schema?: Schema }> };
   responses: Record<
     string,
     { content?: Record<string, { schema?: { $ref?: string } }> }
@@ -51,6 +57,8 @@ const OPERATIONS: Array<[string, string, string[]]> = [
   ['get', '/cases/{slug}', ['404']],
   ['patch', '/cases/{slug}', ['400', '404']],
   ['delete', '/cases/{slug}', ['404']],
+  ['put', '/cases/{slug}/image', ['400', '404', '413']],
+  ['delete', '/cases/{slug}/image', ['404']],
 ];
 
 const CREATE_FIELDS = [
@@ -147,6 +155,8 @@ describe('API documentation (e2e)', () => {
       ['get', '/cases/{slug}'],
       ['patch', '/cases/{slug}'],
       ['delete', '/cases/{slug}'],
+      ['put', '/cases/{slug}/image'],
+      ['delete', '/cases/{slug}/image'],
     ])(
       '%s %s documents slug with a description and an example',
       (method, path) => {
@@ -203,6 +213,72 @@ describe('API documentation (e2e)', () => {
         'title',
       ]);
     });
+  });
+
+  describe('case image', () => {
+    const IMAGE_FIELDS = ['image', 'blurImage'];
+
+    it('PUT /cases/{slug}/image takes a multipart body with a required binary file', () => {
+      const body = operation('put', '/cases/{slug}/image').requestBody;
+      const multipart = body?.content?.['multipart/form-data']?.schema;
+
+      expect(multipart?.type).toBe('object');
+      expect(multipart?.required).toEqual(['file']);
+      expect(multipart?.properties?.file?.type).toBe('string');
+      expect(multipart?.properties?.file?.format).toBe('binary');
+      expect(multipart?.properties?.file?.description?.trim()).toBeTruthy();
+    });
+
+    it('PUT /cases/{slug}/image states the accepted formats and the size limit', () => {
+      const body = operation('put', '/cases/{slug}/image').requestBody;
+      const description =
+        body?.content?.['multipart/form-data']?.schema?.properties?.file
+          ?.description ?? '';
+
+      expect(description).toMatch(/JPEG/);
+      expect(description).toMatch(/PNG/);
+      expect(description).toMatch(/WebP/);
+      expect(description).toMatch(/10 MB/);
+    });
+
+    it('PUT returns the case detail and DELETE answers 204', () => {
+      const put = operation('put', '/cases/{slug}/image').responses;
+      const del = operation('delete', '/cases/{slug}/image').responses;
+
+      expect(put['200']?.content?.['application/json']?.schema?.$ref).toBe(
+        '#/components/schemas/CaseDetailDto',
+      );
+      expect(del['204']).toBeDefined();
+    });
+
+    it.each(['CaseListItemDto', 'CaseDetailDto'])(
+      '%s documents image and blurImage as nullable strings',
+      (name) => {
+        const props = schema(name).properties ?? {};
+
+        for (const field of IMAGE_FIELDS) {
+          expect(props[field]?.type).toBe('string');
+          expect(props[field]?.nullable).toBe(true);
+          expect(props[field]?.description?.trim()).toBeTruthy();
+          expect(props[field]?.example).toBeDefined();
+        }
+      },
+    );
+
+    it('exposes no storage key in any schema', () => {
+      for (const name of Object.keys(doc.components.schemas)) {
+        expect(propertyNames(name)).not.toContain('imageKey');
+      }
+    });
+
+    it.each(['CreateCaseDto', 'UpdateCaseDto'])(
+      '%s does not accept the image fields',
+      (name) => {
+        for (const field of IMAGE_FIELDS) {
+          expect(propertyNames(name)).not.toContain(field);
+        }
+      },
+    );
   });
 
   describe('error responses', () => {
