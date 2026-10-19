@@ -1,5 +1,10 @@
 import { Logger } from '@nestjs/common';
 
+import { TEST_ADMIN_TOKEN } from './helpers/admin-auth';
+
+// Всегда подменяем, не берём из окружения: настоящий токен не должен попадать в тесты.
+process.env.ADMIN_TOKEN = TEST_ADMIN_TOKEN;
+
 // Тише вывод e2e: DEBUG_TESTS=1 возвращает логи приложения.
 if (!process.env.DEBUG_TESTS) {
   jest.spyOn(console, 'log').mockImplementation();

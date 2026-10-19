@@ -36,6 +36,7 @@ interface Operation {
   summary?: string;
   description?: string;
   parameters?: Parameter[];
+  security?: Array<Record<string, string[]>>;
   requestBody?: { content?: Record<string, { schema?: Schema }> };
   responses: Record<
     string,
@@ -44,22 +45,33 @@ interface Operation {
 }
 
 interface OpenApiDocument {
+  openapi: string;
   info: { description?: string };
   tags?: Array<{ name: string; description?: string }>;
   paths: Record<string, Record<string, Operation>>;
-  components: { schemas: Record<string, Schema> };
+  components: {
+    schemas: Record<string, Schema>;
+    securitySchemes?: Record<
+      string,
+      { type?: string; scheme?: string; description?: string }
+    >;
+  };
 }
 
 // [method, path, documented error statuses]
 const OPERATIONS: Array<[string, string, string[]]> = [
-  ['post', '/cases', ['400', '409']],
+  ['post', '/cases', ['400', '401', '409']],
   ['get', '/cases', []],
   ['get', '/cases/{slug}', ['404']],
-  ['patch', '/cases/{slug}', ['400', '404']],
-  ['delete', '/cases/{slug}', ['404']],
-  ['put', '/cases/{slug}/image', ['400', '404', '413']],
-  ['delete', '/cases/{slug}/image', ['404']],
+  ['patch', '/cases/{slug}', ['400', '401', '404']],
+  ['delete', '/cases/{slug}', ['401', '404']],
+  ['put', '/cases/{slug}/image', ['400', '401', '404', '413']],
+  ['delete', '/cases/{slug}/image', ['401', '404']],
 ];
+
+// operations that need the admin token, and the two that stay public
+const PROTECTED = OPERATIONS.filter(([, , errors]) => errors.includes('401'));
+const PUBLIC = OPERATIONS.filter(([, , errors]) => !errors.includes('401'));
 
 const CREATE_FIELDS = [
   'achievements',
@@ -91,6 +103,19 @@ const CREATE_REQUIRED = [
   'stack',
   'startedAt',
 ];
+
+// every `$ref` string found anywhere in the document
+function collectRefs(node: unknown, found: string[] = []): string[] {
+  if (Array.isArray(node)) {
+    for (const item of node) collectRefs(item, found);
+  } else if (node && typeof node === 'object') {
+    for (const [key, value] of Object.entries(node)) {
+      if (key === '$ref' && typeof value === 'string') found.push(value);
+      else collectRefs(value, found);
+    }
+  }
+  return found;
+}
 
 describe('API documentation (e2e)', () => {
   let app: INestApplication;
@@ -126,6 +151,29 @@ describe('API documentation (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  describe('generator readiness', () => {
+    it('is an OpenAPI 3 document', () => {
+      expect(doc.openapi).toMatch(/^3\./);
+    });
+
+    it('has no dangling $ref', () => {
+      const prefix = '#/components/schemas/';
+      const refs = collectRefs(doc);
+
+      expect(refs.length).toBeGreaterThan(0);
+      for (const ref of refs) {
+        expect(ref.startsWith(prefix)).toBe(true);
+        expect(doc.components.schemas[ref.slice(prefix.length)]).toBeDefined();
+      }
+    });
+
+    it('has no schema without properties', () => {
+      for (const name of Object.keys(doc.components.schemas)) {
+        expect([name, propertyNames(name).length > 0]).toEqual([name, true]);
+      }
+    });
   });
 
   describe('operations', () => {
@@ -279,6 +327,36 @@ describe('API documentation (e2e)', () => {
         }
       },
     );
+  });
+
+  describe('authentication', () => {
+    const bearerSchemes = () =>
+      Object.entries(doc.components.securitySchemes ?? {}).filter(
+        ([, scheme]) => scheme.type === 'http' && scheme.scheme === 'bearer',
+      );
+
+    it('declares a described bearer scheme', () => {
+      const schemes = bearerSchemes();
+
+      expect(schemes).toHaveLength(1);
+      expect(schemes[0]?.[1].description?.trim()).toBeTruthy();
+    });
+
+    it.each(PROTECTED)('%s %s requires the bearer scheme', (method, path) => {
+      const name = bearerSchemes()[0]?.[0] ?? '';
+      const security = operation(method, path).security ?? [];
+
+      expect(security.length).toBeGreaterThan(0);
+      expect(security.some((entry) => name in entry)).toBe(true);
+    });
+
+    it.each(PUBLIC)('%s %s is open', (method, path) => {
+      expect(operation(method, path).security ?? []).toEqual([]);
+    });
+
+    it('does not claim that the write endpoints are unprotected', () => {
+      expect(doc.info.description).not.toMatch(/not protected/i);
+    });
   });
 
   describe('error responses', () => {

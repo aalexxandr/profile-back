@@ -3,6 +3,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { adminAuth } from './helpers/admin-auth';
 import { createTestApp } from './helpers/create-test-app';
 import { uniqueId } from './helpers/unique-id';
 
@@ -33,7 +34,10 @@ describe('Case management (e2e)', () => {
 
   const post = (body: Body) => {
     if (typeof body.slug === 'string') created.push(body.slug);
-    return request(server).post('/cases').send(body);
+    return request(server)
+      .post('/cases')
+      .set(...adminAuth())
+      .send(body);
   };
 
   const listedSlugs = async () => {
@@ -52,6 +56,54 @@ describe('Case management (e2e)', () => {
       await prisma.cases.whereUnique({ slug }).delete();
     }
     await app.close();
+  });
+
+  describe('admin token', () => {
+    it('refuses POST without a token and creates nothing', async () => {
+      const body = validCase('noauth');
+
+      await request(server).post('/cases').send(body).expect(401);
+
+      expect(await prisma.cases.first({ slug: String(body.slug) })).toBeFalsy();
+    });
+
+    it('refuses PATCH without a token and keeps the case', async () => {
+      const body = validCase('noauth-patch');
+      await post(body).expect(201);
+
+      await request(server)
+        .patch(`/cases/${String(body.slug)}`)
+        .send({ name: 'Hacked' })
+        .expect(401);
+
+      const row = await prisma.cases.first({ slug: String(body.slug) });
+      expect(row?.name).toBe(body.name);
+    });
+
+    it('refuses DELETE with a wrong token and keeps the case', async () => {
+      const body = validCase('wrongtoken', { published: true });
+      await post(body).expect(201);
+
+      await request(server)
+        .delete(`/cases/${String(body.slug)}`)
+        .set('Authorization', 'Bearer wrong-token')
+        .expect(401);
+
+      await request(server)
+        .get(`/cases/${String(body.slug)}`)
+        .expect(200);
+    });
+
+    it('answers 401, not 404, for an unknown case without a token', async () => {
+      await request(server)
+        .patch(`/cases/${slugOf('missing')}`)
+        .send({ name: 'x' })
+        .expect(401);
+    });
+
+    it('keeps the public reads open without a token', async () => {
+      await request(server).get('/cases').expect(200);
+    });
   });
 
   describe('POST /cases', () => {
@@ -126,7 +178,11 @@ describe('Case management (e2e)', () => {
     ])('responds 400 for %s', async (_name, overrides) => {
       const body = validCase('bad', overrides);
       // only a valid slug could ever reach the DB; nothing to clean up here
-      await request(server).post('/cases').send(body).expect(400);
+      await request(server)
+        .post('/cases')
+        .set(...adminAuth())
+        .send(body)
+        .expect(400);
     });
   });
 
@@ -137,6 +193,7 @@ describe('Case management (e2e)', () => {
 
       const res = await request(server)
         .patch(`/cases/${String(body.slug)}`)
+        .set(...adminAuth())
         .send({ published: true })
         .expect(200);
 
@@ -152,6 +209,7 @@ describe('Case management (e2e)', () => {
 
       const res = await request(server)
         .patch(`/cases/${String(body.slug)}`)
+        .set(...adminAuth())
         .send({ name: 'New name' })
         .expect(200);
 
@@ -164,6 +222,7 @@ describe('Case management (e2e)', () => {
 
       await request(server)
         .patch(`/cases/${String(body.slug)}`)
+        .set(...adminAuth())
         .send({ slug: 'other' })
         .expect(400);
     });
@@ -171,6 +230,7 @@ describe('Case management (e2e)', () => {
     it('responds 404 for an unknown case', async () => {
       await request(server)
         .patch(`/cases/${slugOf('missing')}`)
+        .set(...adminAuth())
         .send({ name: 'x' })
         .expect(404);
     });
@@ -183,6 +243,7 @@ describe('Case management (e2e)', () => {
 
       await request(server)
         .delete(`/cases/${String(body.slug)}`)
+        .set(...adminAuth())
         .expect(204);
 
       await request(server)
@@ -193,6 +254,7 @@ describe('Case management (e2e)', () => {
     it('responds 404 for an unknown case', async () => {
       await request(server)
         .delete(`/cases/${slugOf('missing')}`)
+        .set(...adminAuth())
         .expect(404);
     });
   });

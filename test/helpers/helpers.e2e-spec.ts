@@ -1,3 +1,4 @@
+import { adminAuth, TEST_ADMIN_TOKEN } from './admin-auth';
 import { assertSafeDatabase } from './assert-safe-database';
 import { InMemoryStorage } from './in-memory-storage';
 import { uniqueId } from './unique-id';
@@ -53,6 +54,20 @@ describe('assertSafeDatabase', () => {
 
   it('отклоняет строку, которую нельзя разобрать', () => {
     expect(() => assertSafeDatabase('not a url')).toThrow('не разобрать');
+  });
+});
+
+describe('adminAuth', () => {
+  it('отдаёт заголовок Bearer с тем токеном, который лежит в окружении', () => {
+    expect(adminAuth()).toEqual([
+      'Authorization',
+      `Bearer ${TEST_ADMIN_TOKEN}`,
+    ]);
+    expect(process.env.ADMIN_TOKEN).toBe(TEST_ADMIN_TOKEN);
+  });
+
+  it('использует токен не короче 32 символов', () => {
+    expect(TEST_ADMIN_TOKEN.length).toBeGreaterThanOrEqual(32);
   });
 });
 

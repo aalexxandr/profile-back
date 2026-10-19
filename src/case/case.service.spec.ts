@@ -3,10 +3,8 @@ import { createHash } from 'node:crypto';
 import { BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
-import {
-  ImageProcessingService,
-  type ProcessedImage,
-} from '../image/image-processing.service';
+import type { ProcessedImage } from '../image/image.types';
+import { ImageProcessingService } from '../image/image-processing.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { caseRow } from './case.fixtures';
