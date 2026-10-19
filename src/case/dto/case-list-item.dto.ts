@@ -42,4 +42,24 @@ export class CaseListItemDto {
     description: 'One or two sentences for the list page',
   })
   shortDescription!: string;
+
+  @Expose()
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'https://storage.example.com/cases/spectre/3f9a1c2b7d4e5f60.webp',
+    description:
+      'Absolute public URL of the case picture (WebP, at most 1920 px wide); null while the case has no picture',
+  })
+  image!: string | null;
+
+  @Expose()
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'data:image/webp;base64,UklGRkoAAABXRUJQVlA4ID4AAADwAQCdASoU...',
+    description:
+      'Tiny blurred preview of the picture (about 20 px wide) as a data: URI, generated on upload. Show it instantly as a placeholder while `image` loads; null while the case has no picture',
+  })
+  blurImage!: string | null;
 }

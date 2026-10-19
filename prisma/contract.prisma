@@ -14,6 +14,8 @@ model Case {
   stack            String[]
   shortDescription String @map("short_description")
   description      String
+  imageKey         String? @map("image_key")
+  blurImage        String? @map("blur_image")
   role             pg.enum(Role)
   achievements     Achievement[]
   company          String?

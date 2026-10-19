@@ -7,7 +7,7 @@ import { Reflector } from '@nestjs/core';
 import { lastValueFrom, of } from 'rxjs';
 
 import { CaseController } from '../case.controller';
-import { caseRow } from '../case.fixtures';
+import { caseView } from '../case.fixtures';
 
 type Handler = keyof CaseController;
 
@@ -31,7 +31,9 @@ const serialize = async (handler: Handler, body: unknown): Promise<unknown> => {
 const sortedKeys = (value: unknown) => Object.keys(value as object).sort();
 
 const LIST_ITEM_KEYS = [
+  'blurImage',
   'category',
+  'image',
   'name',
   'shortDescription',
   'slug',
@@ -40,10 +42,12 @@ const LIST_ITEM_KEYS = [
 
 const DETAIL_KEYS = [
   'achievements',
+  'blurImage',
   'category',
   'company',
   'description',
   'endedAt',
+  'image',
   'name',
   'projectLink',
   'role',
@@ -58,8 +62,8 @@ describe('case response serialization', () => {
   describe('list item (findAll)', () => {
     it('exposes exactly the compact list fields', async () => {
       const items = (await serialize('findAll', [
-        caseRow({ slug: 'a' }),
-        caseRow({ slug: 'b' }),
+        caseView({ slug: 'a' }),
+        caseView({ slug: 'b' }),
       ])) as unknown[];
 
       expect(items).toHaveLength(2);
@@ -72,6 +76,28 @@ describe('case response serialization', () => {
       });
     });
 
+    it('sends the picture URL and the blur placeholder', async () => {
+      const items = (await serialize('findAll', [
+        caseView({
+          image: 'https://cdn.test/cases/spectre/ab12.webp',
+          imageKey: 'cases/spectre/ab12.webp',
+          blurImage: 'data:image/webp;base64,AAAA',
+        }),
+      ])) as unknown[];
+
+      expect(items[0]).toMatchObject({
+        image: 'https://cdn.test/cases/spectre/ab12.webp',
+        blurImage: 'data:image/webp;base64,AAAA',
+      });
+      expect(items[0]).not.toHaveProperty('imageKey');
+    });
+
+    it('sends null for both picture fields when there is no picture', async () => {
+      const items = (await serialize('findAll', [caseView()])) as unknown[];
+
+      expect(items[0]).toMatchObject({ image: null, blurImage: null });
+    });
+
     it('serializes an empty list as an empty list', async () => {
       await expect(serialize('findAll', [])).resolves.toEqual([]);
     });
@@ -81,7 +107,7 @@ describe('case response serialization', () => {
     'detail (%s)',
     (handler) => {
       it('exposes the detail fields with flat dates', async () => {
-        const detail = await serialize(handler, caseRow());
+        const detail = await serialize(handler, caseView());
 
         expect(sortedKeys(detail)).toEqual(DETAIL_KEYS);
         expect(detail).toMatchObject({
@@ -96,9 +122,13 @@ describe('case response serialization', () => {
       });
 
       it('does not expose internal columns', async () => {
-        const detail = await serialize(handler, caseRow());
+        const detail = await serialize(
+          handler,
+          caseView({ imageKey: 'cases/spectre/ab12.webp' }),
+        );
 
         for (const key of [
+          'imageKey',
           'published',
           'sortOrder',
           'createdAt',
@@ -111,19 +141,36 @@ describe('case response serialization', () => {
       it('keeps absent optional values as null', async () => {
         const detail = await serialize(
           handler,
-          caseRow({ company: null, teamSize: null, endedAt: null }),
+          caseView({ company: null, teamSize: null, endedAt: null }),
         );
 
         expect(detail).toMatchObject({
           company: null,
           teamSize: null,
           endedAt: null,
+          image: null,
+          blurImage: null,
+        });
+      });
+
+      it('sends the picture URL and the blur placeholder', async () => {
+        const detail = await serialize(
+          handler,
+          caseView({
+            image: 'https://cdn.test/cases/spectre/ab12.webp',
+            blurImage: 'data:image/webp;base64,AAAA',
+          }),
+        );
+
+        expect(detail).toMatchObject({
+          image: 'https://cdn.test/cases/spectre/ab12.webp',
+          blurImage: 'data:image/webp;base64,AAAA',
         });
       });
 
       it('reduces each achievement to its three fields', async () => {
         const row = {
-          ...caseRow(),
+          ...caseView(),
           achievements: [
             { title: 'a', description: 'b', metric: 'c', internal: 'x' },
           ],

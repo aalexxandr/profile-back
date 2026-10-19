@@ -25,7 +25,7 @@ pnpm test -- -t "name"    # single test by name; or pass a file path
 
 Do not use `pnpm update --latest` (bypasses version pins); update major versions one at a time.
 
-`.env.example` is the template. `.env` must define `POSTGRES_URI` — both the app (via `ConfigService.getOrThrow`) and Prisma CLI (`prisma.config.ts`) read it. E2E tests that use the DB hit the real local DB (unique data, deleted afterwards), so the schema must already be applied and the DB must not be production (`assertSafeDatabase` refuses non-local hosts). Some e2e run without a DB.
+`.env.example` is the template. `.env` must define `POSTGRES_URI` — both the app (via `ConfigService.getOrThrow`) and Prisma CLI (`prisma.config.ts`) read it — and the six S3 variables `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_PUBLIC_URL` (Selectel bucket `portfolio`, public read; `StorageService` reads them with `getOrThrow`, so the app fails at startup without them). E2E tests that use the DB hit the real local DB (unique data, deleted afterwards), so the schema must already be applied and the DB must not be production (`assertSafeDatabase` refuses non-local hosts). Some e2e run without a DB.
 
 ## Code quality tooling
 
@@ -48,6 +48,8 @@ Do not use `pnpm update --latest` (bypasses version pins); update major versions
 ## Architecture
 
 Standard Nest layout: feature modules under `src/` (currently only `case/`: controller → service → `PrismaService`, request DTOs validated with class-validator, response DTOs applied by `ClassSerializerInterceptor`). `case` is the portfolio's project catalog: `GET /cases` (published only, compact list items), `GET /cases/:slug` (detail), and `POST` / `PATCH` / `DELETE` for management. Write routes are not protected yet (planned `admin-guard`). `PrismaModule` provides the DB service; `ConfigModule` is global.
+
+Case pictures have their own routes, `PUT /cases/:slug/image` (multipart, one `file`) and `DELETE /cases/:slug/image`; the JSON `POST` / `PATCH` bodies do not accept picture fields. Two support modules serve them: `src/storage/` (`StorageService` over `@aws-sdk/client-s3`: `put`, `delete`, `publicUrl`; imports nothing but `ConfigService`) and `src/image/` (`ImageProcessingService.process(buffer)`: sniffs the real format with `sharp`, accepts only JPEG/PNG/WebP, re-encodes to a genuine WebP at most 1920 px wide with metadata stripped, and builds the ~20 px blur placeholder as a `data:image/webp;base64,...` URI; invalid input becomes `400`). The DB stores only the object key (`image_key`, `cases/<slug>/<content hash>.webp`) and the placeholder (`blur_image`); responses expose `image` (absolute URL = `S3_PUBLIC_URL` + key) and `blurImage`, both `null` without a picture, and never the key. The S3 object is saved before the row, the old one removed after it, and cleanups are best effort (see `src/case/CLAUDE.md`). Tests never touch the real bucket: `createTestApp` always replaces `StorageService` with `InMemoryStorage` (`test/helpers/in-memory-storage.ts`), so CI needs no `S3_*` variables.
 
 App-wide setup lives in `configureApp()` (`src/app.setup.ts`), not `main.ts`, so e2e tests can reuse it: global `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`, `transform`), the `logger` middleware, `AllExceptionFilter`, a global `ClassSerializerInterceptor` (response DTOs with `@Expose()` + `@SerializeOptions`), Swagger (`src/utils/swagger.util.ts`, config in `src/config/swagger.config.ts`), and shutdown hooks. E2E tests should call `configureApp` to match production behavior.
 
