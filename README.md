@@ -24,6 +24,9 @@ S3_BUCKET=portfolio
 S3_ACCESS_KEY=replace_me
 S3_SECRET_KEY=replace_me
 S3_PUBLIC_URL=https://replace-me.example.com
+
+# Токен администратора для запросов на запись (не короче 32 символов)
+ADMIN_TOKEN=replace_me
 ```
 
 Приложение и Prisma CLI читают именно `POSTGRES_URI`. Логин и пароль должны
@@ -38,6 +41,14 @@ S3_PUBLIC_URL=https://replace-me.example.com
 `<S3_PUBLIC_URL>/cases/spectre/3f9a1c2b7d4e5f60.webp`. Миграция добавляет к `cases`
 две колонки (`image_key`, `blur_image`), поэтому после обновления выполните
 `pnpm run db:migrate`.
+
+`ADMIN_TOKEN` тоже обязателен: без него, а также если он короче 32 символов,
+приложение не запустится (ошибка называет переменную). Сгенерируйте случайное
+значение и положите в `.env` (в репозиторий и логи его не попадает):
+
+```bash
+openssl rand -hex 32
+```
 
 ```bash
 pnpm install --frozen-lockfile
@@ -66,7 +77,21 @@ API: `http://localhost:3000/cases`, документация Swagger: `http://lo
 | `PUT /cases/:slug/image`    | Загрузить или заменить картинку кейса (multipart, поле `file`); `400` не картинка, `404` нет кейса, `413` больше 10 МБ                                                     |
 | `DELETE /cases/:slug/image` | Убрать картинку кейса, `204` (повтор тоже `204`)                                                                                                                           |
 
-Запросы на запись пока не защищены (планируется `admin-guard`), не публикуйте API в открытый доступ.
+Открыты только два `GET`. Остальные запросы (создание, изменение, удаление кейса,
+загрузка и удаление картинки) требуют заголовок `Authorization: Bearer <ADMIN_TOKEN>`;
+без него, с неверным токеном или другой схемой ответ `401` (одинаковый для всех случаев).
+Токен проверяется раньше тела запроса и файла, поэтому неавторизованный запрос ничего не создаёт.
+Новый маршрут по умолчанию тоже закрыт: открыть его можно только декоратором `@Public()`.
+
+```bash
+curl -X POST http://localhost:3000/cases \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ ... }'
+```
+
+В Swagger (`/docs`) нажмите **Authorize** и вставьте токен: он подставится ко всем
+защищённым операциям (у них в документации есть замок и ответ `401`).
 
 ### Контракт API для фронтенда
 
@@ -96,8 +121,10 @@ pnpm dlx openapi-typescript "$OPENAPI_URL" -o src/api/schema.d.ts
 Загружается одна обычная картинка, вторая версия (blur) создаётся сама:
 
 ```bash
-curl -X PUT http://localhost:3000/cases/spectre/image -F "file=@photo.jpg"
-curl -X DELETE http://localhost:3000/cases/spectre/image
+curl -X PUT http://localhost:3000/cases/spectre/image \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -F "file=@photo.jpg"
+curl -X DELETE http://localhost:3000/cases/spectre/image \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
 Принимаются JPEG, PNG и WebP (формат определяется по содержимому файла, а не по
@@ -115,7 +142,8 @@ curl -X DELETE http://localhost:3000/cases/spectre/image
 Кейс можно опубликовать и без картинки. При замене и удалении старый файл удаляется
 из бакета (при сбое удаления остаётся неиспользуемый объект, запрос это не ломает).
 Тесты никогда не обращаются к настоящему бакету: хранилище в них заменено на
-in-memory заглушку, поэтому переменные `S3_*` для CI не нужны.
+in-memory заглушку, поэтому переменные `S3_*` для CI не нужны. Так же и `ADMIN_TOKEN`:
+`test/setup-e2e.ts` подставляет тестовый токен, настоящий в тесты не попадает.
 
 ## Ежедневная работа
 

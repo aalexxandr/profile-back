@@ -26,25 +26,20 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import { Public } from '../auth/public.decorator';
+import { ApiAdminAuth } from '../common/swagger/api-admin-auth.decorator';
 import { ApiErrorResponse } from '../common/swagger/api-error-response.decorator';
+import {
+  DETAIL,
+  LIST_ITEM,
+  MAX_IMAGE_BYTES,
+  SLUG_PARAM,
+} from './case.constants';
 import { CaseService } from './case.service';
 import { CaseDetailDto } from './dto/case-detail.dto';
 import { CaseListItemDto } from './dto/case-list-item.dto';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
-
-// Only `@Expose()`d fields of the DTO are sent; the service returns DB rows.
-const LIST_ITEM = { type: CaseListItemDto, strategy: 'excludeAll' } as const;
-const DETAIL = { type: CaseDetailDto, strategy: 'excludeAll' } as const;
-
-const SLUG_PARAM = {
-  name: 'slug',
-  description: 'Unique identifier of the case (lowercase kebab-case)',
-  example: 'spectre',
-} as const;
-
-/** Larger uploads are refused with 413 before they are processed. */
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 @ApiTags('Cases')
 @Controller('cases')
@@ -52,10 +47,11 @@ export class CaseController {
   constructor(private readonly caseService: CaseService) {}
 
   @Post()
+  @ApiAdminAuth()
   @ApiOperation({
     summary: 'Create a case',
     description:
-      'Creates a case. Unless `published: true` is sent it is a draft: it is not shown in the public list and its detail returns 404. The slug must be unique. A new case has no picture; upload one with `PUT /cases/{slug}/image`.',
+      'Admin only. Creates a case. Unless `published: true` is sent it is a draft: it is not shown in the public list and its detail returns 404. The slug must be unique. A new case has no picture; upload one with `PUT /cases/{slug}/image`.',
   })
   @ApiCreatedResponse({ type: CaseDetailDto, description: 'The created case' })
   @ApiErrorResponse(
@@ -68,6 +64,7 @@ export class CaseController {
     return this.caseService.createCase(caseDataDto);
   }
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'List published cases',
@@ -83,6 +80,7 @@ export class CaseController {
     return this.caseService.findAll();
   }
 
+  @Public()
   @Get(':slug')
   @ApiOperation({
     summary: 'Get a published case',
@@ -98,10 +96,11 @@ export class CaseController {
   }
 
   @Patch(':slug')
+  @ApiAdminAuth()
   @ApiOperation({
     summary: 'Update a case',
     description:
-      'Partial update: only the fields that are sent change, the rest stay as they are. Works for drafts as well. The slug cannot be changed, and neither can the picture: use `PUT /cases/{slug}/image` for that.',
+      'Admin only. Partial update: only the fields that are sent change, the rest stay as they are. Works for drafts as well. The slug cannot be changed, and neither can the picture: use `PUT /cases/{slug}/image` for that.',
   })
   @ApiParam(SLUG_PARAM)
   @ApiOkResponse({ type: CaseDetailDto, description: 'The updated case' })
@@ -117,10 +116,11 @@ export class CaseController {
 
   @Delete(':slug')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiAdminAuth()
   @ApiOperation({
     summary: 'Delete a case',
     description:
-      'Removes a case for good, whether it is published or a draft. Its stored picture is removed as well.',
+      'Admin only. Removes a case for good, whether it is published or a draft. Its stored picture is removed as well.',
   })
   @ApiParam(SLUG_PARAM)
   @ApiNoContentResponse({ description: 'The case was deleted' })
@@ -130,6 +130,7 @@ export class CaseController {
   }
 
   @Put(':slug/image')
+  @ApiAdminAuth()
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }),
   )
@@ -152,7 +153,7 @@ export class CaseController {
   @ApiOperation({
     summary: 'Upload the picture of a case',
     description:
-      'Sets or replaces the picture of a case, drafts included. Send one file in the multipart field `file`. The server re-encodes it to a real WebP (at most 1920 px wide, never enlarged, EXIF orientation applied, metadata removed) and generates the blurred placeholder itself, so only one version is ever uploaded. The response is the case detail with the new `image` URL and `blurImage` data URI. A previous picture is removed from the storage. Uploading the same file again changes nothing.',
+      'Admin only. Sets or replaces the picture of a case, drafts included. Send one file in the multipart field `file`. The server re-encodes it to a real WebP (at most 1920 px wide, never enlarged, EXIF orientation applied, metadata removed) and generates the blurred placeholder itself, so only one version is ever uploaded. The response is the case detail with the new `image` URL and `blurImage` data URI. A previous picture is removed from the storage. Uploading the same file again changes nothing.',
   })
   @ApiParam(SLUG_PARAM)
   @ApiOkResponse({
@@ -180,10 +181,11 @@ export class CaseController {
 
   @Delete(':slug/image')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiAdminAuth()
   @ApiOperation({
     summary: 'Remove the picture of a case',
     description:
-      'Clears `image` and `blurImage` of the case and removes the stored file. Repeating the call for a case that has no picture is harmless and answers 204 as well.',
+      'Admin only. Clears `image` and `blurImage` of the case and removes the stored file. Repeating the call for a case that has no picture is harmless and answers 204 as well.',
   })
   @ApiParam(SLUG_PARAM)
   @ApiNoContentResponse({ description: 'The case has no picture now' })

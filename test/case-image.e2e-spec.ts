@@ -4,6 +4,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { adminAuth } from './helpers/admin-auth';
 import { createTestApp } from './helpers/create-test-app';
 import { InMemoryStorage } from './helpers/in-memory-storage';
 import { uniqueId } from './helpers/unique-id';
@@ -60,6 +61,7 @@ describe('Case image (e2e)', () => {
   const upload = (slug: string, file: Buffer, filename = 'photo.jpg') =>
     request(server)
       .put(`/cases/${slug}/image`)
+      .set(...adminAuth())
       .attach('file', file, { filename, contentType: 'image/jpeg' });
 
   const keyOf = (body: Body) =>
@@ -76,6 +78,49 @@ describe('Case image (e2e)', () => {
       await prisma.cases.whereUnique({ slug }).delete();
     }
     await app.close();
+  });
+
+  describe('admin token', () => {
+    const uploadAs = (slug: string, file: Buffer, authorization?: string) => {
+      const req = request(server).put(`/cases/${slug}/image`);
+      if (authorization) req.set('Authorization', authorization);
+      return req.attach('file', file, {
+        filename: 'photo.jpg',
+        contentType: 'image/jpeg',
+      });
+    };
+
+    it('refuses an upload without a token and stores nothing', async () => {
+      const slug = await seed('noauth');
+      const keysBefore = storage.keys().length;
+
+      await uploadAs(slug, await solidJpeg(100, 100)).expect(401);
+
+      expect(storage.keys()).toHaveLength(keysBefore);
+      const row = await prisma.cases.first({ slug });
+      expect(row?.imageKey).toBeFalsy();
+    });
+
+    it('refuses an upload with a wrong token', async () => {
+      const slug = await seed('wrongtoken');
+
+      await uploadAs(
+        slug,
+        await solidJpeg(100, 100),
+        'Bearer wrong-token',
+      ).expect(401);
+    });
+
+    it('refuses to remove a picture without a token and keeps it', async () => {
+      const slug = await seed('noauth-del');
+      const put = await upload(slug, await solidJpeg(100, 100)).expect(200);
+
+      await request(server).delete(`/cases/${slug}/image`).expect(401);
+
+      expect(storage.has(keyOf(put.body as Body))).toBe(true);
+      const detail = await request(server).get(`/cases/${slug}`).expect(200);
+      expect((detail.body as Body).image).toBe((put.body as Body).image);
+    });
   });
 
   describe('PUT /cases/:slug/image', () => {
@@ -141,6 +186,7 @@ describe('Case image (e2e)', () => {
 
       await request(server)
         .put(`/cases/${slug}/image`)
+        .set(...adminAuth())
         .field('note', 'no file here')
         .expect(400);
     });
@@ -150,6 +196,7 @@ describe('Case image (e2e)', () => {
 
       await request(server)
         .put(`/cases/${slug}/image`)
+        .set(...adminAuth())
         .attach('picture', await solidJpeg(50, 50), 'photo.jpg')
         .expect(400);
     });
@@ -229,7 +276,10 @@ describe('Case image (e2e)', () => {
       const slug = await seed('del');
       const put = await upload(slug, await solidJpeg(100, 100)).expect(200);
 
-      await request(server).delete(`/cases/${slug}/image`).expect(204);
+      await request(server)
+        .delete(`/cases/${slug}/image`)
+        .set(...adminAuth())
+        .expect(204);
 
       expect(storage.has(keyOf(put.body as Body))).toBe(false);
       const detail = await request(server).get(`/cases/${slug}`).expect(200);
@@ -239,12 +289,21 @@ describe('Case image (e2e)', () => {
     it('answers 204 again for a case without a picture', async () => {
       const slug = await seed('del-twice');
 
-      await request(server).delete(`/cases/${slug}/image`).expect(204);
-      await request(server).delete(`/cases/${slug}/image`).expect(204);
+      await request(server)
+        .delete(`/cases/${slug}/image`)
+        .set(...adminAuth())
+        .expect(204);
+      await request(server)
+        .delete(`/cases/${slug}/image`)
+        .set(...adminAuth())
+        .expect(204);
     });
 
     it('responds 404 for an unknown case', async () => {
-      await request(server).delete(`/cases/${tag}-missing/image`).expect(404);
+      await request(server)
+        .delete(`/cases/${tag}-missing/image`)
+        .set(...adminAuth())
+        .expect(404);
     });
   });
 
@@ -255,7 +314,10 @@ describe('Case image (e2e)', () => {
       const key = keyOf(put.body as Body);
       expect(storage.has(key)).toBe(true);
 
-      await request(server).delete(`/cases/${slug}`).expect(204);
+      await request(server)
+        .delete(`/cases/${slug}`)
+        .set(...adminAuth())
+        .expect(204);
 
       expect(storage.has(key)).toBe(false);
     });
@@ -269,6 +331,7 @@ describe('Case image (e2e)', () => {
 
         await request(server)
           .patch(`/cases/${slug}`)
+          .set(...adminAuth())
           .send({ [field]: 'data:image/webp;base64,AAAA' })
           .expect(400);
       },
@@ -277,6 +340,7 @@ describe('Case image (e2e)', () => {
     it('POST rejects the picture fields as unknown', async () => {
       await request(server)
         .post('/cases')
+        .set(...adminAuth())
         .send({
           slug: `${tag}-post`,
           name: 'x',
