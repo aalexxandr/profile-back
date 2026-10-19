@@ -6,8 +6,7 @@ import {
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-/** Stored pictures never change under the same key (it carries a content hash). */
-const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable';
+import { IMMUTABLE_CACHE } from './storage.constants';
 
 /** Public objects of the S3 bucket (Selectel): upload, remove, build URLs. */
 @Injectable()

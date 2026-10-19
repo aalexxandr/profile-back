@@ -1,22 +1,17 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import sharp from 'sharp';
 
-export interface ProcessedImage {
-  /** Optimized picture, a genuine WebP. */
-  image: Buffer;
-  /** Blurred placeholder as a `data:image/webp;base64,...` URI. */
-  blur: string;
-}
-
-const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp']);
-const MAX_WIDTH = 1920;
-const WEBP_QUALITY = 80;
-const BLUR_WIDTH = 20;
-const BLUR_SIGMA = 1;
-const BLUR_QUALITY = 40;
-const BLUR_PREFIX = 'data:image/webp;base64,';
-/** Guards against a small file that decodes into a huge bitmap. */
-const MAX_INPUT_PIXELS = 50_000_000;
+import {
+  ALLOWED_FORMATS,
+  BLUR_PREFIX,
+  BLUR_QUALITY,
+  BLUR_SIGMA,
+  BLUR_WIDTH,
+  MAX_INPUT_PIXELS,
+  MAX_WIDTH,
+  WEBP_QUALITY,
+} from './image.constants';
+import type { ProcessedImage } from './image.types';
 
 @Injectable()
 export class ImageProcessingService {
