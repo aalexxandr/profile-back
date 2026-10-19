@@ -44,6 +44,7 @@ interface Operation {
 }
 
 interface OpenApiDocument {
+  openapi: string;
   info: { description?: string };
   tags?: Array<{ name: string; description?: string }>;
   paths: Record<string, Record<string, Operation>>;
@@ -92,6 +93,19 @@ const CREATE_REQUIRED = [
   'startedAt',
 ];
 
+// every `$ref` string found anywhere in the document
+function collectRefs(node: unknown, found: string[] = []): string[] {
+  if (Array.isArray(node)) {
+    for (const item of node) collectRefs(item, found);
+  } else if (node && typeof node === 'object') {
+    for (const [key, value] of Object.entries(node)) {
+      if (key === '$ref' && typeof value === 'string') found.push(value);
+      else collectRefs(value, found);
+    }
+  }
+  return found;
+}
+
 describe('API documentation (e2e)', () => {
   let app: INestApplication;
   let doc: OpenApiDocument;
@@ -126,6 +140,29 @@ describe('API documentation (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  describe('generator readiness', () => {
+    it('is an OpenAPI 3 document', () => {
+      expect(doc.openapi).toMatch(/^3\./);
+    });
+
+    it('has no dangling $ref', () => {
+      const prefix = '#/components/schemas/';
+      const refs = collectRefs(doc);
+
+      expect(refs.length).toBeGreaterThan(0);
+      for (const ref of refs) {
+        expect(ref.startsWith(prefix)).toBe(true);
+        expect(doc.components.schemas[ref.slice(prefix.length)]).toBeDefined();
+      }
+    });
+
+    it('has no schema without properties', () => {
+      for (const name of Object.keys(doc.components.schemas)) {
+        expect([name, propertyNames(name).length > 0]).toEqual([name, true]);
+      }
+    });
   });
 
   describe('operations', () => {
