@@ -1,11 +1,36 @@
 import { createHash } from 'node:crypto';
 
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { ImageProcessingService } from '../image/image-processing.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
-import { CaseRow, CaseView } from './case.types';
+import {
+  PUBLISH_NEEDS_ALL_LANGUAGES,
+  SUPPORTED_LOCALES,
+} from './case.constants';
+import {
+  CaseFullView,
+  CaseRow,
+  CaseText,
+  CaseView,
+  CaseWithTranslations,
+  Locale,
+} from './case.types';
+import {
+  canBePublished,
+  isCompleteText,
+  omitUndefined,
+  pickText,
+  selectTranslation,
+  textsByLocale,
+  toTranslationMap,
+} from './case-translation.util';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 
@@ -19,50 +44,137 @@ export class CaseService {
     private readonly imageProcessingService: ImageProcessingService,
   ) {}
 
-  async createCase(caseData: CreateCaseDto): Promise<CaseView> {
-    const row = await this.prismaService.cases.create({
-      slug: caseData.slug,
-      name: caseData.name,
-      projectLink: caseData.projectLink,
-      category: caseData.category,
-      stack: caseData.stack,
-      shortDescription: caseData.shortDescription,
-      description: caseData.description,
-      role: caseData.role,
-      achievements: caseData.achievements,
-      company: caseData.company ?? null,
-      teamSize: caseData.teamSize ?? null,
-      startedAt: caseData.startedAt,
-      endedAt: caseData.endedAt ?? null,
-      sortOrder: caseData.sortOrder ?? 0,
-      published: caseData.published ?? false,
+  /**
+   * Creates the case and its translations together. A case can be published
+   * only if it is created with every supported language.
+   */
+  async createCase(caseData: CreateCaseDto): Promise<CaseFullView> {
+    const { translations } = caseData;
+    const given = SUPPORTED_LOCALES.filter((locale) => translations[locale]);
+    if (caseData.published && !canBePublished(given)) {
+      throw new BadRequestException(PUBLISH_NEEDS_ALL_LANGUAGES);
+    }
+
+    return this.prismaService.transaction(async (tx) => {
+      const row = await tx.orm.public.Case.create({
+        slug: caseData.slug,
+        projectLink: caseData.projectLink,
+        stack: caseData.stack,
+        role: caseData.role,
+        company: caseData.company ?? null,
+        teamSize: caseData.teamSize ?? null,
+        startedAt: caseData.startedAt,
+        endedAt: caseData.endedAt ?? null,
+        sortOrder: caseData.sortOrder ?? 0,
+        published: caseData.published ?? false,
+      });
+
+      const stored: Partial<Record<Locale, CaseText>> = {};
+      for (const locale of given) {
+        const text = translations[locale];
+        if (!text) continue;
+        const created = await tx.orm.public.CaseTranslation.create({
+          caseSlug: row.slug,
+          locale,
+          ...pickText(text),
+        });
+        stored[locale] = pickText(created);
+      }
+      return this.toAdminView(row, stored);
     });
-    return this.toView(row);
   }
 
-  async findAll(): Promise<CaseView[]> {
+  async findAll(locale: Locale): Promise<CaseView[]> {
     const rows = await this.prismaService.cases
       .where({ published: true })
       .orderBy([(row) => row.sortOrder.asc(), (row) => row.createdAt.desc()])
+      .include('translations')
       .all();
-    return rows.map((row) => this.toView(row));
+    return rows.flatMap((row) => this.toView(row, locale) ?? []);
   }
 
-  async findBySlug(slug: string): Promise<CaseView> {
-    const row = await this.prismaService.cases.first({
-      slug,
-      published: true,
-    });
-    if (!row) throw new NotFoundException('Case not found');
-    return this.toView(row);
-  }
-
-  async updateCase(slug: string, caseData: UpdateCaseDto): Promise<CaseView> {
+  async findBySlug(slug: string, locale: Locale): Promise<CaseView> {
     const row = await this.prismaService.cases
-      .whereUnique({ slug })
-      .update(caseData);
-    if (!row) throw new NotFoundException('Case not found');
-    return this.toView(row);
+      .where({ slug, published: true })
+      .include('translations')
+      .first();
+    const view = row && this.toView(row, locale);
+    if (!view) throw new NotFoundException('Case not found');
+    return view;
+  }
+
+  /**
+   * Merges the sent fields into the stored case: language-independent fields
+   * as they are, translations per language and per field (`achievements` as a
+   * whole). The two-language rule for `published` is checked on the resulting
+   * state, before anything is written.
+   */
+  async updateCase(
+    slug: string,
+    caseData: UpdateCaseDto,
+  ): Promise<CaseFullView> {
+    const { translations: patches, ...rest } = caseData;
+    const caseFields = omitUndefined(rest);
+
+    return this.prismaService.transaction(async (tx) => {
+      const current = await tx.orm.public.Case.where({ slug })
+        .include('translations')
+        .first();
+      if (!current) throw new NotFoundException('Case not found');
+      const { translations: storedRows, ...currentRow } = current;
+
+      const stored = textsByLocale(storedRows);
+      const merged = { ...stored };
+      const writes: Array<() => Promise<unknown>> = [];
+      for (const locale of SUPPORTED_LOCALES) {
+        const patch = patches?.[locale];
+        if (!patch) continue;
+        const fields = omitUndefined(patch);
+        const existing = stored[locale];
+        if (existing) {
+          merged[locale] = { ...existing, ...fields };
+          writes.push(async () => {
+            const updated = await tx.orm.public.CaseTranslation.where({
+              caseSlug: slug,
+              locale,
+            }).update(fields);
+            if (!updated) throw new NotFoundException('Case not found');
+          });
+        } else {
+          if (!isCompleteText(fields)) {
+            throw new BadRequestException(
+              `The ${locale} translation does not exist yet, so it must be sent complete: name, category, shortDescription, description and achievements`,
+            );
+          }
+          merged[locale] = pickText(fields);
+          writes.push(() =>
+            tx.orm.public.CaseTranslation.create({
+              caseSlug: slug,
+              locale,
+              ...pickText(fields),
+            }),
+          );
+        }
+      }
+
+      const published = caseFields.published ?? current.published;
+      const present = SUPPORTED_LOCALES.filter((locale) => merged[locale]);
+      if (published && !canBePublished(present)) {
+        throw new BadRequestException(PUBLISH_NEEDS_ALL_LANGUAGES);
+      }
+
+      let row: CaseRow = currentRow;
+      if (Object.keys(caseFields).length > 0) {
+        const updated = await tx.orm.public.Case.whereUnique({
+          slug,
+        }).update(caseFields);
+        if (!updated) throw new NotFoundException('Case not found');
+        row = updated;
+      }
+      for (const write of writes) await write();
+
+      return this.toAdminView(row, merged);
+    });
   }
 
   async deleteCase(slug: string): Promise<void> {
@@ -76,11 +188,15 @@ export class CaseService {
    * before the previous object is removed, so a failure never leaves the case
    * pointing at nothing.
    */
-  async setImage(slug: string, file: Buffer): Promise<CaseView> {
+  async setImage(slug: string, file: Buffer): Promise<CaseFullView> {
     const current = await this.prismaService.cases.first({ slug });
     if (!current) throw new NotFoundException('Case not found');
 
     const { image, blur } = await this.imageProcessingService.process(file);
+    // read before any side effect, so a failure here leaves storage untouched
+    const translations = await this.prismaService.caseTranslations
+      .where({ caseSlug: slug })
+      .all();
     const key = `cases/${slug}/${createHash('sha256').update(image).digest('hex').slice(0, 16)}.webp`;
     await this.storageService.put(key, image, 'image/webp');
 
@@ -101,7 +217,7 @@ export class CaseService {
     if (current.imageKey && current.imageKey !== key) {
       await this.removeObject(current.imageKey);
     }
-    return this.toView(updated);
+    return this.toAdminView(updated, textsByLocale(translations));
   }
 
   /** Clears the picture; repeating it on a case without one is a no-op. */
@@ -134,11 +250,36 @@ export class CaseService {
     }
   }
 
-  /** Adds the public URL of the picture; the storage key itself stays internal. */
-  private toView(row: CaseRow): CaseView {
+  /** The public URL of a stored picture; the storage key itself stays internal. */
+  private imageUrl(imageKey: string | null): string | null {
+    return imageKey ? this.storageService.publicUrl(imageKey) : null;
+  }
+
+  /**
+   * The flat view of one language: the requested translation, else Russian.
+   * `null` when the case has nothing to serve, which a published case never has.
+   */
+  private toView(row: CaseWithTranslations, locale: Locale): CaseView | null {
+    const { translations, ...caseRow } = row;
+    const translation = selectTranslation(translations, locale);
+    if (!translation) return null;
+    return {
+      ...caseRow,
+      ...pickText(translation),
+      locale: translation.locale,
+      image: this.imageUrl(caseRow.imageKey),
+    };
+  }
+
+  /** The row with the text of every language and the picture URL. */
+  private toAdminView(
+    row: CaseRow,
+    texts: Partial<Record<Locale, CaseText>>,
+  ): CaseFullView {
     return {
       ...row,
-      image: row.imageKey ? this.storageService.publicUrl(row.imageKey) : null,
+      image: this.imageUrl(row.imageKey),
+      translations: toTranslationMap(texts),
     };
   }
 }

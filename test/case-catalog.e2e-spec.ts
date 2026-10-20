@@ -19,18 +19,18 @@ describe('Case catalog (e2e)', () => {
   const tag = uniqueId('cat', 16);
   const created: string[] = [];
 
-  const seed = async (suffix: string, overrides: Body = {}) => {
+  // a case with the translations asked for (both languages by default)
+  const seed = async (
+    suffix: string,
+    overrides: Body = {},
+    locales: Array<'ru' | 'en'> = ['ru', 'en'],
+  ) => {
     const slug = `${tag}-${suffix}`;
     await prisma.cases.create({
       slug,
-      name: `Case ${suffix}`,
       projectLink: 'https://example.com',
-      category: 'Web App',
       stack: ['React'],
-      shortDescription: `Short ${suffix}`,
-      description: `Long ${suffix}`,
       role: 'FRONTEND',
-      achievements: [{ title: 't', description: 'd', metric: 'm' }],
       company: null,
       teamSize: null,
       startedAt: '2024-01-01',
@@ -40,6 +40,22 @@ describe('Case catalog (e2e)', () => {
       ...overrides,
     });
     created.push(slug);
+    for (const locale of locales) {
+      const ru = locale === 'ru';
+      await prisma.caseTranslations.create({
+        caseSlug: slug,
+        locale,
+        name: ru ? `Кейс ${suffix}` : `Case ${suffix}`,
+        category: ru ? 'Веб-приложение' : 'Web App',
+        shortDescription: ru ? `Кратко ${suffix}` : `Short ${suffix}`,
+        description: ru ? `Подробно ${suffix}` : `Long ${suffix}`,
+        achievements: [
+          ru
+            ? { title: 'т', description: 'о', metric: 'м' }
+            : { title: 't', description: 'd', metric: 'm' },
+        ],
+      });
+    }
     return slug;
   };
 
@@ -86,6 +102,7 @@ describe('Case catalog (e2e)', () => {
           'blurImage',
           'category',
           'image',
+          'locale',
           'name',
           'shortDescription',
           'slug',
@@ -142,6 +159,165 @@ describe('Case catalog (e2e)', () => {
     });
   });
 
+  describe('language', () => {
+    const idOf = (res: { body: unknown }) => res.body as Body;
+
+    it('serves Russian and says so when no lang is given', async () => {
+      const slug = await seed('lang-default');
+
+      const res = await request(server).get(`/cases/${slug}`).expect(200);
+
+      expect(idOf(res)).toMatchObject({
+        locale: 'ru',
+        name: 'Кейс lang-default',
+        category: 'Веб-приложение',
+        shortDescription: 'Кратко lang-default',
+        description: 'Подробно lang-default',
+      });
+    });
+
+    it('serves English for lang=en on the detail', async () => {
+      const slug = await seed('lang-en');
+
+      const res = await request(server)
+        .get(`/cases/${slug}`)
+        .query({ lang: 'en' })
+        .expect(200);
+
+      expect(idOf(res)).toMatchObject({
+        locale: 'en',
+        name: 'Case lang-en',
+        category: 'Web App',
+        shortDescription: 'Short lang-en',
+        description: 'Long lang-en',
+        achievements: [{ title: 't', description: 'd', metric: 'm' }],
+      });
+    });
+
+    it('serves Russian for lang=ru', async () => {
+      const slug = await seed('lang-ru');
+
+      const res = await request(server)
+        .get(`/cases/${slug}`)
+        .query({ lang: 'ru' })
+        .expect(200);
+
+      expect(idOf(res)).toMatchObject({ locale: 'ru', name: 'Кейс lang-ru' });
+    });
+
+    it('localizes every item of the list', async () => {
+      const slug = await seed('list-en');
+
+      const res = await request(server)
+        .get('/cases')
+        .query({ lang: 'en' })
+        .expect(200);
+      const ours = (res.body as Array<Body & { slug: string }>).filter((item) =>
+        item.slug.startsWith(tag),
+      );
+
+      expect(ours.length).toBeGreaterThan(0);
+      for (const item of ours) expect(item.locale).toBe('en');
+      expect(ours.find((item) => item.slug === slug)).toMatchObject({
+        name: 'Case list-en',
+        category: 'Web App',
+        shortDescription: 'Short list-en',
+      });
+    });
+
+    it('falls back to Russian for an unsupported lang, without failing', async () => {
+      const slug = await seed('lang-de');
+
+      const detail = await request(server)
+        .get(`/cases/${slug}`)
+        .query({ lang: 'de' })
+        .expect(200);
+      const list = await request(server)
+        .get('/cases')
+        .query({ lang: 'de' })
+        .expect(200);
+
+      expect(idOf(detail)).toMatchObject({
+        locale: 'ru',
+        name: 'Кейс lang-de',
+      });
+      const item = (list.body as Array<Body & { slug: string }>).find(
+        (i) => i.slug === slug,
+      );
+      expect(item).toMatchObject({ locale: 'ru', name: 'Кейс lang-de' });
+    });
+
+    it('ignores the Accept-Language header', async () => {
+      const slug = await seed('lang-header');
+
+      const res = await request(server)
+        .get(`/cases/${slug}`)
+        .set('Accept-Language', 'en')
+        .expect(200);
+
+      expect(idOf(res)).toMatchObject({
+        locale: 'ru',
+        name: 'Кейс lang-header',
+      });
+    });
+
+    it('does not change the language-independent fields', async () => {
+      const slug = await seed('lang-shared', {
+        company: 'Acme',
+        teamSize: 4,
+        endedAt: '2024-06-01',
+      });
+
+      const ru = await request(server).get(`/cases/${slug}`).expect(200);
+      const en = await request(server)
+        .get(`/cases/${slug}`)
+        .query({ lang: 'en' })
+        .expect(200);
+
+      for (const key of [
+        'slug',
+        'stack',
+        'role',
+        'projectLink',
+        'company',
+        'teamSize',
+        'startedAt',
+        'endedAt',
+        'image',
+        'blurImage',
+      ]) {
+        expect([key, (en.body as Body)[key]]).toEqual([
+          key,
+          (ru.body as Body)[key],
+        ]);
+      }
+    });
+
+    it('serves Russian, and says so, when a published case lacks the requested English text', async () => {
+      const slug = await seed('lang-missing', {}, ['ru']);
+
+      const res = await request(server)
+        .get(`/cases/${slug}`)
+        .query({ lang: 'en' })
+        .expect(200);
+
+      expect(idOf(res)).toMatchObject({
+        locale: 'ru',
+        name: 'Кейс lang-missing',
+      });
+    });
+
+    it('hides an unpublished case in every language', async () => {
+      const slug = await seed('lang-draft', { published: false });
+
+      await request(server).get(`/cases/${slug}`).expect(404);
+      await request(server)
+        .get(`/cases/${slug}`)
+        .query({ lang: 'en' })
+        .expect(404);
+    });
+  });
+
   describe('Swagger', () => {
     it('documents the list item and the detail schemas', async () => {
       const res = await request(server).get('/docs-json').expect(200);
@@ -173,6 +349,7 @@ describe('Case catalog (e2e)', () => {
         'description',
         'endedAt',
         'image',
+        'locale',
         'name',
         'projectLink',
         'role',
@@ -189,7 +366,7 @@ describe('Case catalog (e2e)', () => {
         role: 'FRONTEND',
         startedAt: '2024-01-01',
         endedAt: '2024-06-01',
-        achievements: [{ title: 't', description: 'd', metric: 'm' }],
+        achievements: [{ title: 'т', description: 'о', metric: 'м' }],
       });
     });
 

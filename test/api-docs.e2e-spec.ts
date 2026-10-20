@@ -9,6 +9,9 @@ interface SchemaProperty {
   type?: string;
   format?: string;
   nullable?: boolean;
+  default?: unknown;
+  $ref?: string;
+  allOf?: Array<{ $ref?: string }>;
   description?: string;
   example?: unknown;
   maxLength?: number;
@@ -26,9 +29,10 @@ interface Schema {
 interface Parameter {
   name: string;
   in: string;
+  required?: boolean;
   description?: string;
   example?: unknown;
-  schema?: { example?: unknown };
+  schema?: { example?: unknown; enum?: string[]; default?: unknown };
 }
 
 interface Operation {
@@ -74,34 +78,57 @@ const PROTECTED = OPERATIONS.filter(([, , errors]) => errors.includes('401'));
 const PUBLIC = OPERATIONS.filter(([, , errors]) => !errors.includes('401'));
 
 const CREATE_FIELDS = [
-  'achievements',
-  'category',
   'company',
-  'description',
   'endedAt',
-  'name',
   'projectLink',
   'published',
   'role',
-  'shortDescription',
   'slug',
   'sortOrder',
   'stack',
   'startedAt',
   'teamSize',
+  'translations',
 ];
 
 const CREATE_REQUIRED = [
+  'projectLink',
+  'role',
+  'slug',
+  'stack',
+  'startedAt',
+  'translations',
+];
+
+const TRANSLATION_FIELDS = [
   'achievements',
   'category',
   'description',
   'name',
-  'projectLink',
-  'role',
   'shortDescription',
+];
+
+const ADMIN_FIELDS = [
+  'blurImage',
+  'company',
+  'endedAt',
+  'image',
+  'projectLink',
+  'published',
+  'role',
   'slug',
+  'sortOrder',
   'stack',
   'startedAt',
+  'teamSize',
+  'translations',
+];
+
+// the operations whose response is the full view: [method, path, status]
+const ADMIN_RESPONSES: Array<[string, string, string]> = [
+  ['post', '/cases', '201'],
+  ['patch', '/cases/{slug}', '200'],
+  ['put', '/cases/{slug}/image', '200'],
 ];
 
 // every `$ref` string found anywhere in the document
@@ -263,6 +290,132 @@ describe('API documentation (e2e)', () => {
     });
   });
 
+  describe('localization', () => {
+    const PUBLIC_READS: Array<[string, string]> = [
+      ['get', '/cases'],
+      ['get', '/cases/{slug}'],
+    ];
+    const langParameter = (method: string, path: string) =>
+      operation(method, path).parameters?.find(
+        (p) => p.name === 'lang' && p.in === 'query',
+      );
+
+    it.each(PUBLIC_READS)(
+      '%s %s takes an optional lang query parameter limited to ru and en',
+      (method, path) => {
+        const lang = langParameter(method, path);
+
+        expect(lang).toBeDefined();
+        expect(lang?.required ?? false).toBe(false);
+        expect([...(lang?.schema?.enum ?? [])].sort()).toEqual(['en', 'ru']);
+        expect(lang?.schema?.default).toBe('ru');
+        expect(lang?.description?.trim()).toBeTruthy();
+        expect(lang?.description).toMatch(/ru/);
+      },
+    );
+
+    it('has the lang parameter on no other operation', () => {
+      for (const [method, path] of OPERATIONS) {
+        if (PUBLIC_READS.some(([m, p]) => m === method && p === path)) continue;
+        expect([method, path, langParameter(method, path)]).toEqual([
+          method,
+          path,
+          undefined,
+        ]);
+      }
+    });
+
+    it.each(['CaseListItemDto', 'CaseDetailDto'])(
+      '%s documents the served locale',
+      (name) => {
+        const locale = schema(name).properties?.locale;
+
+        expect([...(locale?.enum ?? [])].sort()).toEqual(['en', 'ru']);
+        expect(locale?.description?.trim()).toBeTruthy();
+        expect(locale?.example).toBeDefined();
+      },
+    );
+
+    it.each(ADMIN_RESPONSES)(
+      '%s %s answers %s with the full view',
+      (method, path, status) => {
+        const response = operation(method, path).responses[status];
+
+        expect(response?.content?.['application/json']?.schema?.$ref).toBe(
+          '#/components/schemas/CaseFullDto',
+        );
+      },
+    );
+
+    it('CaseFullDto lists the shared fields and the translations, without a served text', () => {
+      expect(propertyNames('CaseFullDto')).toEqual(ADMIN_FIELDS);
+    });
+
+    it('CaseFullDto describes every scalar field', () => {
+      const props = schema('CaseFullDto').properties ?? {};
+
+      for (const field of ADMIN_FIELDS.filter((f) => f !== 'translations')) {
+        expect([field, props[field]?.description?.trim()]).toEqual([
+          field,
+          expect.any(String),
+        ]);
+      }
+    });
+
+    it('CaseFullDto translations holds nullable ru and en texts', () => {
+      const translations = propertyNames('CaseFullTranslationsDto');
+      const props = schema('CaseFullTranslationsDto').properties ?? {};
+
+      expect(translations).toEqual(['en', 'ru']);
+      expect(props.ru?.nullable).toBe(true);
+      expect(props.en?.nullable).toBe(true);
+      expect(props.ru?.description?.trim()).toBeTruthy();
+      expect(props.en?.description?.trim()).toBeTruthy();
+    });
+
+    it('the full text schema has the five text fields', () => {
+      expect(propertyNames('CaseTranslationViewDto')).toEqual(
+        TRANSLATION_FIELDS,
+      );
+    });
+
+    it('CaseTranslationDto describes its five required text fields', () => {
+      const dto = schema('CaseTranslationDto');
+
+      expect(propertyNames('CaseTranslationDto')).toEqual(TRANSLATION_FIELDS);
+      expect([...(dto.required ?? [])].sort()).toEqual(TRANSLATION_FIELDS);
+      for (const field of TRANSLATION_FIELDS) {
+        expect(dto.properties?.[field]?.description?.trim()).toBeTruthy();
+      }
+      expect(dto.properties?.name?.maxLength).toBe(100);
+      expect(dto.properties?.name?.example).toBeDefined();
+    });
+
+    it('CreateCaseTranslationsDto requires ru and leaves en optional', () => {
+      expect(propertyNames('CreateCaseTranslationsDto')).toEqual(['en', 'ru']);
+      expect(schema('CreateCaseTranslationsDto').required).toEqual(['ru']);
+    });
+
+    it('the update translations schemas are partial', () => {
+      expect(propertyNames('UpdateCaseTranslationsDto')).toEqual(['en', 'ru']);
+      expect(schema('UpdateCaseTranslationsDto').required ?? []).toEqual([]);
+      expect(propertyNames('UpdateCaseTranslationDto')).toEqual(
+        TRANSLATION_FIELDS,
+      );
+      expect(schema('UpdateCaseTranslationDto').required ?? []).toEqual([]);
+    });
+
+    it('describes the two-language rule where a client sets published', () => {
+      const published = schema('CreateCaseDto').properties?.published;
+      const create = operation('post', '/cases').description ?? '';
+      const patch = operation('patch', '/cases/{slug}').description ?? '';
+
+      expect(published?.description).toMatch(/en/);
+      expect(create).toMatch(/English|en\b/);
+      expect(patch).toMatch(/English|en\b/);
+    });
+  });
+
   describe('case image', () => {
     const IMAGE_FIELDS = ['image', 'blurImage'];
 
@@ -289,17 +442,17 @@ describe('API documentation (e2e)', () => {
       expect(description).toMatch(/10 MB/);
     });
 
-    it('PUT returns the case detail and DELETE answers 204', () => {
+    it('PUT returns the full view and DELETE answers 204', () => {
       const put = operation('put', '/cases/{slug}/image').responses;
       const del = operation('delete', '/cases/{slug}/image').responses;
 
       expect(put['200']?.content?.['application/json']?.schema?.$ref).toBe(
-        '#/components/schemas/CaseDetailDto',
+        '#/components/schemas/CaseFullDto',
       );
       expect(del['204']).toBeDefined();
     });
 
-    it.each(['CaseListItemDto', 'CaseDetailDto'])(
+    it.each(['CaseListItemDto', 'CaseDetailDto', 'CaseFullDto'])(
       '%s documents image and blurImage as nullable strings',
       (name) => {
         const props = schema(name).properties ?? {};

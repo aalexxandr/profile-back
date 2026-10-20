@@ -1,0 +1,411 @@
+[
+  {
+    "id": "createNativeEnumType.Locale",
+    "label": "Create enum type \"Locale\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "type",
+        "name": "Locale"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create enum type \"Locale\"",
+        "sql": "CREATE TYPE \"public\".\"Locale\" AS ENUM ('ru', 'en')",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.case_translations",
+    "label": "Create table \"case_translations\"",
+    "summary": "Creates table \"case_translations\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "case_translations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"case_translations\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"case_translations\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"case_translations\"",
+        "sql": "CREATE TABLE \"public\".\"case_translations\" (\n  \"achievements\" jsonb NOT NULL,\n  \"case_slug\" text NOT NULL,\n  \"category\" text NOT NULL,\n  \"description\" text NOT NULL,\n  \"locale\" \"Locale\" NOT NULL,\n  \"name\" text NOT NULL,\n  \"short_description\" text NOT NULL,\n  PRIMARY KEY (\"case_slug\", \"locale\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"case_translations\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"case_translations\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.case_translations.case_translations_case_slug_idx_2342b752",
+    "label": "Create index \"case_translations_case_slug_idx_2342b752\" on \"case_translations\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "case_translations_case_slug_idx_2342b752",
+        "table": "case_translations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"case_translations_case_slug_idx_2342b752\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"case_translations_case_slug_idx_2342b752\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"case_translations_case_slug_idx_2342b752\"",
+        "sql": "CREATE INDEX \"case_translations_case_slug_idx_2342b752\" ON \"public\".\"case_translations\" (\"case_slug\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"case_translations_case_slug_idx_2342b752\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"case_translations_case_slug_idx_2342b752\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.case_translations.case_translations_case_slug_fkey",
+    "label": "Add foreign key \"case_translations_case_slug_fkey\" on \"case_translations\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "case_translations_case_slug_fkey",
+        "table": "case_translations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"case_translations_case_slug_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "case_translations_case_slug_fkey",
+          "public",
+          "\"public\".\"case_translations\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"case_translations_case_slug_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"case_translations\"\nADD CONSTRAINT \"case_translations_case_slug_fkey\"\nFOREIGN KEY (\"case_slug\")\nREFERENCES \"public\".\"cases\" (\"slug\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"case_translations_case_slug_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "case_translations_case_slug_fkey",
+          "public",
+          "\"public\".\"case_translations\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "data.case_translations.copy_ru",
+    "label": "Copy the text of every case into a \"ru\" translation",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "case_translations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure the old text columns still exist on \"cases\"",
+        "sql": "SELECT EXISTS (SELECT 1 FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = 'public' AND \"table_name\" = 'cases' AND \"column_name\" = 'name') AS \"result\""
+      }
+    ],
+    "execute": [
+      {
+        "description": "insert one \"ru\" translation per case",
+        "sql": "INSERT INTO \"public\".\"case_translations\" (\"case_slug\", \"locale\", \"name\", \"category\", \"short_description\", \"description\", \"achievements\") SELECT \"slug\", 'ru'::\"public\".\"Locale\", \"name\", \"category\", \"short_description\", \"description\", \"achievements\" FROM \"public\".\"cases\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify every case has a \"ru\" translation",
+        "sql": "SELECT NOT EXISTS (SELECT 1 FROM \"public\".\"cases\" c WHERE NOT EXISTS (SELECT 1 FROM \"public\".\"case_translations\" t WHERE t.\"case_slug\" = c.\"slug\" AND t.\"locale\" = 'ru'::\"public\".\"Locale\")) AS \"result\""
+      }
+    ]
+  },
+  {
+    "id": "data.cases.unpublish_all",
+    "label": "Unpublish every case until its \"en\" translation is added",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "cases"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "set published = false on all cases",
+        "sql": "UPDATE \"public\".\"cases\" SET \"published\" = false WHERE \"published\" = true"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify no case is published",
+        "sql": "SELECT NOT EXISTS (SELECT 1 FROM \"public\".\"cases\" WHERE \"published\" = true) AS \"result\""
+      }
+    ]
+  },
+  {
+    "id": "dropColumn.cases.achievements",
+    "label": "Drop column \"achievements\" from \"cases\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "achievements",
+        "table": "cases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"achievements\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "achievements"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop column \"achievements\"",
+        "sql": "ALTER TABLE \"public\".\"cases\" DROP COLUMN \"achievements\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"achievements\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "achievements"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropColumn.cases.category",
+    "label": "Drop column \"category\" from \"cases\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "category",
+        "table": "cases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"category\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "category"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop column \"category\"",
+        "sql": "ALTER TABLE \"public\".\"cases\" DROP COLUMN \"category\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"category\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "category"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropColumn.cases.description",
+    "label": "Drop column \"description\" from \"cases\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "description",
+        "table": "cases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"description\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "description"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop column \"description\"",
+        "sql": "ALTER TABLE \"public\".\"cases\" DROP COLUMN \"description\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"description\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "description"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropColumn.cases.name",
+    "label": "Drop column \"name\" from \"cases\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "name",
+        "table": "cases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"name\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "name"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop column \"name\"",
+        "sql": "ALTER TABLE \"public\".\"cases\" DROP COLUMN \"name\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"name\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "name"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropColumn.cases.short_description",
+    "label": "Drop column \"short_description\" from \"cases\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "short_description",
+        "table": "cases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"short_description\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "short_description"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop column \"short_description\"",
+        "sql": "ALTER TABLE \"public\".\"cases\" DROP COLUMN \"short_description\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"short_description\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "short_description"
+        ]
+      }
+    ]
+  }
+]

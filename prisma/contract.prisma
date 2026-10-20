@@ -8,16 +8,11 @@ type Achievement {
 
 model Case {
   slug             String @id
-  name             String
   projectLink      String @map("project_link")
-  category         String
   stack            String[]
-  shortDescription String @map("short_description")
-  description      String
   imageKey         String? @map("image_key")
   blurImage        String? @map("blur_image")
   role             pg.enum(Role)
-  achievements     Achievement[]
   company          String?
   teamSize         Int? @map("team_size")
   startedAt        DateString @map("started_at")
@@ -26,11 +21,31 @@ model Case {
   published        Boolean @default(false)
   createdAt        TimestamptzJsDate @default(now()) @map("created_at")
   updatedAt        temporal.updatedAtJsDate() @map("updated_at")
+  translations     CaseTranslation[]
 
   @@map("cases")
+}
+
+model CaseTranslation {
+  caseSlug         String @map("case_slug")
+  locale           pg.enum(Locale)
+  name             String
+  category         String
+  shortDescription String @map("short_description")
+  description      String
+  achievements     Achievement[]
+  case             Case @relation(fields: [caseSlug], references: [slug], onDelete: Cascade)
+
+  @@id([caseSlug, locale])
+  @@map("case_translations")
 }
 
 native_enum Role {
   FRONTEND = "FRONTEND"
   FULLSTACK = "FULLSTACK"
+}
+
+native_enum Locale {
+  RU = "ru"
+  EN = "en"
 }
