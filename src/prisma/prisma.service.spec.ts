@@ -13,9 +13,12 @@ const postgresMock = jest.mocked(postgres);
 function createService(uri: string | undefined) {
   const close = jest.fn<Promise<void>, []>().mockResolvedValue();
   const Case = { name: 'Case model' };
+  const CaseTranslation = { name: 'CaseTranslation model' };
+  const transaction = jest.fn();
   postgresMock.mockReturnValue({
-    orm: { public: { Case } },
+    orm: { public: { Case, CaseTranslation } },
     close,
+    transaction,
   } as unknown as ReturnType<typeof postgres>);
 
   const getOrThrow = jest.fn((key: string) => {
@@ -24,7 +27,7 @@ function createService(uri: string | undefined) {
   });
   const config = { getOrThrow } as unknown as ConfigService;
 
-  return { config, getOrThrow, close, Case };
+  return { config, getOrThrow, close, Case, CaseTranslation, transaction };
 }
 
 describe('PrismaService', () => {
@@ -54,6 +57,25 @@ describe('PrismaService', () => {
     const { config, Case } = createService('postgresql://localhost/db');
 
     expect(new PrismaService(config).cases).toBe(Case);
+  });
+
+  it('отдаёт модель переводов из client.orm.public', () => {
+    const { config, CaseTranslation } = createService(
+      'postgresql://localhost/db',
+    );
+
+    expect(new PrismaService(config).caseTranslations).toBe(CaseTranslation);
+  });
+
+  it('выполняет функцию в транзакции клиента и возвращает её результат', async () => {
+    const { config, transaction } = createService('postgresql://localhost/db');
+    transaction.mockResolvedValue('done');
+    const fn = jest.fn();
+
+    const result = await new PrismaService(config).transaction(fn);
+
+    expect(transaction).toHaveBeenCalledWith(fn);
+    expect(result).toBe('done');
   });
 
   it('закрывает клиент при остановке модуля', async () => {
