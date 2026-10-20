@@ -24,13 +24,6 @@ export class CaseDetailDto extends CaseListItemDto {
 
   @Expose()
   @ApiProperty({
-    example: 'https://thespectre.io',
-    description: 'Link to the live project',
-  })
-  projectLink!: string;
-
-  @Expose()
-  @ApiProperty({
     type: String,
     nullable: true,
     example: 'Acme',

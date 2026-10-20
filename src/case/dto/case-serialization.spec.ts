@@ -36,6 +36,7 @@ const LIST_ITEM_KEYS = [
   'image',
   'locale',
   'name',
+  'projectLink',
   'shortDescription',
   'slug',
   'stack',

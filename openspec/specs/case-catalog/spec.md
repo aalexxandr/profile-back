@@ -18,8 +18,8 @@ Defines the public, read-only view of the portfolio's cases: a compact list for 
 #### Scenario: List item exposes only the compact fields
 
 - **WHEN** a client requests `GET /cases` and a published case exists
-- **THEN** every item has exactly the keys `slug`, `locale`, `name`, `category`, `stack`, `shortDescription`, `image`, `blurImage`
-- **AND** no item has `description`, `role`, `projectLink`, `company`, `teamSize`, `period`, `achievements`, `translations`, `published`, `sortOrder`, `createdAt`, `updatedAt` or the internal storage key of the picture
+- **THEN** every item has exactly the keys `slug`, `locale`, `name`, `category`, `stack`, `shortDescription`, `projectLink`, `image`, `blurImage`
+- **AND** no item has `description`, `role`, `company`, `teamSize`, `period`, `achievements`, `translations`, `published`, `sortOrder`, `createdAt`, `updatedAt` or the internal storage key of the picture
 
 #### Scenario: List is localized
 
@@ -57,7 +57,7 @@ Defines the public, read-only view of the portfolio's cases: a compact list for 
 
 ### Requirement: Return case detail by slug
 
-`GET /cases/:slug` SHALL return the extended view of a published case in the language chosen by `lang`: `slug`, `locale`, `name`, `category`, `stack`, `shortDescription`, `image`, `blurImage`, `description`, `role`, `projectLink`, `company`, `teamSize`, `startedAt`, `endedAt` and `achievements`. `startedAt` and `endedAt` MUST be top-level ISO dates (`YYYY-MM-DD`), with `endedAt` being `null` while the work is ongoing; there is no nested `period` object. Each achievement MUST be `{ title, description, metric }`. `image` and `blurImage` follow the same rules as in the list and are `null` while the case has no picture.
+`GET /cases/:slug` SHALL return the extended view of a published case in the language chosen by `lang`: `slug`, `locale`, `name`, `category`, `stack`, `shortDescription`, `projectLink`, `image`, `blurImage`, `description`, `role`, `company`, `teamSize`, `startedAt`, `endedAt` and `achievements`. `startedAt` and `endedAt` MUST be top-level ISO dates (`YYYY-MM-DD`), with `endedAt` being `null` while the work is ongoing; there is no nested `period` object. Each achievement MUST be `{ title, description, metric }`. `image` and `blurImage` follow the same rules as in the list and are `null` while the case has no picture.
 
 #### Scenario: Detail of a published case
 

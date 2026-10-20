@@ -56,6 +56,13 @@ export class CaseListItemDto {
 
   @Expose()
   @ApiProperty({
+    example: 'https://thespectre.io',
+    description: 'Link to the live project',
+  })
+  projectLink!: string;
+
+  @Expose()
+  @ApiProperty({
     type: String,
     nullable: true,
     example: 'https://storage.example.com/cases/spectre/3f9a1c2b7d4e5f60.webp',

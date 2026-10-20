@@ -104,6 +104,7 @@ describe('Case catalog (e2e)', () => {
           'image',
           'locale',
           'name',
+          'projectLink',
           'shortDescription',
           'slug',
           'stack',
