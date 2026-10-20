@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 
+import { Locale } from '../../prisma/enums';
+
 /**
  * Compact form of a case, shown in the general list. Only `@Expose()`d fields
  * reach the client (`strategy: 'excludeAll'` on the route).
@@ -12,6 +14,15 @@ export class CaseListItemDto {
     description: 'Unique identifier of the case, used in its URL',
   })
   slug!: string;
+
+  @Expose()
+  @ApiProperty({
+    enum: Locale,
+    example: 'ru',
+    description:
+      'Language of the text fields of this response. It is the requested `lang`, or `ru` when `lang` is missing or unsupported',
+  })
+  locale!: Locale;
 
   @Expose()
   @ApiProperty({

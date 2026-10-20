@@ -1,20 +1,20 @@
-import type { CaseRow, CaseView } from './case.types';
+import type {
+  CaseFullView,
+  CaseRow,
+  CaseText,
+  CaseTranslationRow,
+  CaseView,
+  CaseWithTranslations,
+} from './case.types';
 
 /** A full database row of a case; each test overrides only what it checks. */
 export const caseRow = (overrides: Partial<CaseRow> = {}): CaseRow => ({
   slug: 'spectre',
-  name: 'The Spectre Explorer',
   projectLink: 'https://thespectre.io',
-  category: 'FinTech / Web App',
   stack: ['React', 'TypeScript'],
-  shortDescription: 'Blockchain explorer',
-  description: 'Long description',
   imageKey: null,
   blurImage: null,
   role: 'FRONTEND',
-  achievements: [
-    { title: 'Faster', description: 'Less manual work', metric: '-30%' },
-  ],
   company: 'Acme',
   teamSize: 5,
   startedAt: '2024-01-01',
@@ -26,9 +26,60 @@ export const caseRow = (overrides: Partial<CaseRow> = {}): CaseRow => ({
   ...overrides,
 });
 
-/** A row as the service returns it: with the computed `image` URL. */
+/** The text of a case in one language (English by default, easy to tell from `ru`). */
+export const caseText = (overrides: Partial<CaseText> = {}): CaseText => ({
+  name: 'The Spectre Explorer',
+  category: 'FinTech / Web App',
+  shortDescription: 'Blockchain explorer',
+  description: 'Long description',
+  achievements: [
+    { title: 'Faster', description: 'Less manual work', metric: '-30%' },
+  ],
+  ...overrides,
+});
+
+/** A database row of `case_translations`. */
+export const translationRow = (
+  overrides: Partial<CaseTranslationRow> = {},
+): CaseTranslationRow => ({
+  caseSlug: 'spectre',
+  locale: 'ru',
+  ...caseText({
+    name: 'Спектр',
+    category: 'Финтех / Веб-приложение',
+    shortDescription: 'Обозреватель блокчейна',
+    description: 'Длинное описание',
+    achievements: [
+      { title: 'Быстрее', description: 'Меньше ручной работы', metric: '-30%' },
+    ],
+  }),
+  ...overrides,
+});
+
+/** A case row with both translations loaded, as `.include('translations')` returns it. */
+export const caseWithTranslations = (
+  overrides: Partial<CaseRow> = {},
+  translations: CaseTranslationRow[] = [
+    translationRow({ locale: 'ru' }),
+    translationRow({ locale: 'en', ...caseText({ name: 'Spectre' }) }),
+  ],
+): CaseWithTranslations => ({ ...caseRow(overrides), translations });
+
+/** A row as the public reads return it: flat text, `locale` and the computed `image` URL. */
 export const caseView = (overrides: Partial<CaseView> = {}): CaseView => ({
   ...caseRow(),
+  ...caseText(),
   image: null,
+  locale: 'ru',
+  ...overrides,
+});
+
+/** A row as the writes return it: every language and the computed `image` URL. */
+export const caseAdminView = (
+  overrides: Partial<CaseFullView> = {},
+): CaseFullView => ({
+  ...caseRow(),
+  image: null,
+  translations: { ru: caseText(), en: caseText({ name: 'Spectre' }) },
   ...overrides,
 });

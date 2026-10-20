@@ -6,7 +6,7 @@ export function getSwaggerConfig() {
   return new DocumentBuilder()
     .setTitle('Portfolio API')
     .setDescription(
-      "REST API of the portfolio: the projects (cases) from the author's career. Public endpoints list published cases and return one case in full. The write endpoints (create, update, delete, picture upload and removal) are for the administrator only and need the header `Authorization: Bearer <ADMIN_TOKEN>`; without a valid token they answer 401.",
+      "REST API of the portfolio: the projects (cases) from the author's career. Public endpoints list published cases and return one case in full; their text is in Russian or English, chosen with the `lang` query parameter (Russian by default). The write endpoints (create, update, delete, picture upload and removal) are for the administrator only and need the header `Authorization: Bearer <ADMIN_TOKEN>`; without a valid token they answer 401.",
     )
     .setVersion('1.0.0')
     .addTag(

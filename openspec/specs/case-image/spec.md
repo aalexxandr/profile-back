@@ -8,13 +8,14 @@ Defines how a case gets its picture: a single uploaded image is re-encoded to an
 
 ### Requirement: Upload a case image
 
-`PUT /cases/:slug/image` SHALL accept a `multipart/form-data` body with exactly one file field `file`, store an optimized copy of the picture for the case, and respond `200` with the detail view of the case including `image` and `blurImage`. The route MUST work for published and unpublished cases. Publishing a case MUST NOT require an image.
+`PUT /cases/:slug/image` SHALL accept a `multipart/form-data` body with exactly one file field `file`, store an optimized copy of the picture for the case, and respond `200` with the full view of the case (see `case-management`) including `image` and `blurImage`. The route MUST work for published and unpublished cases. Publishing a case MUST NOT require an image.
 
 #### Scenario: Upload a JPEG
 
 - **WHEN** a case `spectre` exists and a client sends `PUT /cases/spectre/image` with a valid JPEG in the field `file`
 - **THEN** the response is `200` and `image` is an absolute `http(s)` URL ending in `.webp`
 - **AND** `blurImage` is a string starting with `data:image/webp;base64,`
+- **AND** the response contains `translations`
 
 #### Scenario: Upload to a draft
 

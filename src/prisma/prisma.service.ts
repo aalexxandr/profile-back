@@ -20,6 +20,15 @@ export class PrismaService implements OnModuleDestroy {
     return this.client.orm.public.Case;
   }
 
+  get caseTranslations() {
+    return this.client.orm.public.CaseTranslation;
+  }
+
+  /** Runs `fn` in one database transaction: commits on return, rolls back on a throw. */
+  transaction<T>(fn: Parameters<typeof this.client.transaction<T>>[0]) {
+    return this.client.transaction(fn);
+  }
+
   async onModuleDestroy() {
     await this.client.close();
   }

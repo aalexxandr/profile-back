@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   SerializeOptions,
   UploadedFile,
   UseInterceptors,
@@ -23,6 +24,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -31,12 +33,16 @@ import { ApiAdminAuth } from '../common/swagger/api-admin-auth.decorator';
 import { ApiErrorResponse } from '../common/swagger/api-error-response.decorator';
 import {
   DETAIL,
+  FULL,
+  LANG_QUERY,
   LIST_ITEM,
   MAX_IMAGE_BYTES,
   SLUG_PARAM,
 } from './case.constants';
 import { CaseService } from './case.service';
+import { resolveLocale } from './case-locale.util';
 import { CaseDetailDto } from './dto/case-detail.dto';
+import { CaseFullDto } from './dto/case-full.dto';
 import { CaseListItemDto } from './dto/case-list-item.dto';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
@@ -51,15 +57,18 @@ export class CaseController {
   @ApiOperation({
     summary: 'Create a case',
     description:
-      'Admin only. Creates a case. Unless `published: true` is sent it is a draft: it is not shown in the public list and its detail returns 404. The slug must be unique. A new case has no picture; upload one with `PUT /cases/{slug}/image`.',
+      'Admin only. Creates a case with its text in `translations`: `ru` is required, `en` is optional for a draft. Unless `published: true` is sent it is a draft: it is not shown in the public list and its detail returns 404. A case can be published only with both `ru` and `en` (English) text, otherwise the answer is 400. The slug must be unique. A new case has no picture; upload one with `PUT /cases/{slug}/image`. The response carries the text of every language.',
   })
-  @ApiCreatedResponse({ type: CaseDetailDto, description: 'The created case' })
+  @ApiCreatedResponse({
+    type: CaseFullDto,
+    description: 'The created case with all its translations',
+  })
   @ApiErrorResponse(
     400,
-    'Validation failed: a field is missing, malformed or unknown',
+    'Validation failed: a field is missing, malformed or unknown, `translations.ru` is missing, or `published: true` was sent without an English translation',
   )
   @ApiErrorResponse(409, 'A case with this slug already exists')
-  @SerializeOptions(DETAIL)
+  @SerializeOptions(FULL)
   createCase(@Body() caseDataDto: CreateCaseDto) {
     return this.caseService.createCase(caseDataDto);
   }
@@ -69,15 +78,16 @@ export class CaseController {
   @ApiOperation({
     summary: 'List published cases',
     description:
-      'Returns the published cases in the compact form used on the list page, ordered by `sortOrder` ascending and, within the same `sortOrder`, newest first. Drafts are never included. Every item carries `image` and `blurImage` (both null for a case without a picture).',
+      'Returns the published cases in the compact form used on the list page, ordered by `sortOrder` ascending and, within the same `sortOrder`, newest first. Drafts are never included. Every item carries `image` and `blurImage` (both null for a case without a picture). The text is in the language chosen with `lang` (Russian by default) and `locale` tells which one was served.',
   })
+  @ApiQuery(LANG_QUERY)
   @ApiOkResponse({
     type: [CaseListItemDto],
     description: 'Published cases; an empty array when there are none',
   })
   @SerializeOptions(LIST_ITEM)
-  findAll() {
-    return this.caseService.findAll();
+  findAll(@Query('lang') lang?: string) {
+    return this.caseService.findAll(resolveLocale(lang));
   }
 
   @Public()
@@ -85,14 +95,15 @@ export class CaseController {
   @ApiOperation({
     summary: 'Get a published case',
     description:
-      'Returns the full case used on the detail page. An unpublished case gives the same 404 as an unknown one, so drafts do not leak.',
+      'Returns the full case used on the detail page. The text is in the language chosen with `lang` (Russian by default) and `locale` tells which one was served. An unpublished case gives the same 404 as an unknown one, so drafts do not leak.',
   })
   @ApiParam(SLUG_PARAM)
+  @ApiQuery(LANG_QUERY)
   @ApiOkResponse({ type: CaseDetailDto, description: 'The published case' })
   @ApiErrorResponse(404, 'Unknown or unpublished case')
   @SerializeOptions(DETAIL)
-  findBySlug(@Param('slug') slug: string) {
-    return this.caseService.findBySlug(slug);
+  findBySlug(@Param('slug') slug: string, @Query('lang') lang?: string) {
+    return this.caseService.findBySlug(slug, resolveLocale(lang));
   }
 
   @Patch(':slug')
@@ -100,16 +111,19 @@ export class CaseController {
   @ApiOperation({
     summary: 'Update a case',
     description:
-      'Admin only. Partial update: only the fields that are sent change, the rest stay as they are. Works for drafts as well. The slug cannot be changed, and neither can the picture: use `PUT /cases/{slug}/image` for that.',
+      'Admin only. Partial update: only the fields that are sent change, the rest stay as they are. In `translations` send only the languages and fields to change; `achievements`, when sent, replaces the whole list. A language that does not exist yet (for example `en`) must be sent complete. A case can be published only with both `ru` and `en` (English) text: `published: true` for a case without one is rejected with 400 unless the same request adds it. Works for drafts as well. The slug cannot be changed, and neither can the picture: use `PUT /cases/{slug}/image` for that.',
   })
   @ApiParam(SLUG_PARAM)
-  @ApiOkResponse({ type: CaseDetailDto, description: 'The updated case' })
+  @ApiOkResponse({
+    type: CaseFullDto,
+    description: 'The updated case with all its translations',
+  })
   @ApiErrorResponse(
     400,
-    'Validation failed: a field is malformed, unknown, or the slug was sent',
+    'Validation failed: a field is malformed, unknown, or the slug was sent; a new language was sent incomplete; or the case would be published without an English translation',
   )
   @ApiErrorResponse(404, 'Unknown case')
-  @SerializeOptions(DETAIL)
+  @SerializeOptions(FULL)
   updateCase(@Param('slug') slug: string, @Body() caseDataDto: UpdateCaseDto) {
     return this.caseService.updateCase(slug, caseDataDto);
   }
@@ -153,12 +167,12 @@ export class CaseController {
   @ApiOperation({
     summary: 'Upload the picture of a case',
     description:
-      'Admin only. Sets or replaces the picture of a case, drafts included. Send one file in the multipart field `file`. The server re-encodes it to a real WebP (at most 1920 px wide, never enlarged, EXIF orientation applied, metadata removed) and generates the blurred placeholder itself, so only one version is ever uploaded. The response is the case detail with the new `image` URL and `blurImage` data URI. A previous picture is removed from the storage. Uploading the same file again changes nothing.',
+      'Admin only. Sets or replaces the picture of a case, drafts included. Send one file in the multipart field `file`. The server re-encodes it to a real WebP (at most 1920 px wide, never enlarged, EXIF orientation applied, metadata removed) and generates the blurred placeholder itself, so only one version is ever uploaded. The response is the case with the new `image` URL and `blurImage` data URI and the text of every language. A previous picture is removed from the storage. Uploading the same file again changes nothing.',
   })
   @ApiParam(SLUG_PARAM)
   @ApiOkResponse({
-    type: CaseDetailDto,
-    description: 'The case with its new picture',
+    type: CaseFullDto,
+    description: 'The case with its new picture and all its translations',
   })
   @ApiErrorResponse(
     400,
@@ -166,7 +180,7 @@ export class CaseController {
   )
   @ApiErrorResponse(404, 'Unknown case')
   @ApiErrorResponse(413, 'The file is larger than 10 MB')
-  @SerializeOptions(DETAIL)
+  @SerializeOptions(FULL)
   setImage(
     @Param('slug') slug: string,
     @UploadedFile() file: Express.Multer.File | undefined,

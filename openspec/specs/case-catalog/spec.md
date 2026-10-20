@@ -8,7 +8,7 @@ Defines the public, read-only view of the portfolio's cases: a compact list for 
 
 ### Requirement: List published cases
 
-`GET /cases` SHALL return a JSON array containing only published cases. Each item MUST contain exactly `slug`, `name`, `category`, `stack`, `shortDescription`, `image` and `blurImage`. `image` MUST be the absolute public URL of the case picture and `blurImage` the blur placeholder as a `data:image/webp;base64,...` URI; both are `null` while the case has no picture.
+`GET /cases` SHALL return a JSON array containing only published cases, with the texts in the language chosen by `lang` (see `case-localization`). Each item MUST contain exactly `slug`, `locale`, `name`, `category`, `stack`, `shortDescription`, `image` and `blurImage`. `image` MUST be the absolute public URL of the case picture and `blurImage` the blur placeholder as a `data:image/webp;base64,...` URI; both are `null` while the case has no picture.
 
 #### Scenario: Only published cases are listed
 
@@ -18,8 +18,13 @@ Defines the public, read-only view of the portfolio's cases: a compact list for 
 #### Scenario: List item exposes only the compact fields
 
 - **WHEN** a client requests `GET /cases` and a published case exists
-- **THEN** every item has exactly the keys `slug`, `name`, `category`, `stack`, `shortDescription`, `image`, `blurImage`
-- **AND** no item has `description`, `role`, `projectLink`, `company`, `teamSize`, `period`, `achievements`, `published`, `sortOrder`, `createdAt`, `updatedAt` or the internal storage key of the picture
+- **THEN** every item has exactly the keys `slug`, `locale`, `name`, `category`, `stack`, `shortDescription`, `image`, `blurImage`
+- **AND** no item has `description`, `role`, `projectLink`, `company`, `teamSize`, `period`, `achievements`, `translations`, `published`, `sortOrder`, `createdAt`, `updatedAt` or the internal storage key of the picture
+
+#### Scenario: List is localized
+
+- **WHEN** a published case has `ru` name `Спектр` and `en` name `Spectre` and a client requests `GET /cases?lang=en`
+- **THEN** its item has `name: "Spectre"` and `locale: "en"`
 
 #### Scenario: Case with a picture
 
@@ -52,13 +57,18 @@ Defines the public, read-only view of the portfolio's cases: a compact list for 
 
 ### Requirement: Return case detail by slug
 
-`GET /cases/:slug` SHALL return the extended view of a published case: `slug`, `name`, `category`, `stack`, `shortDescription`, `image`, `blurImage`, `description`, `role`, `projectLink`, `company`, `teamSize`, `startedAt`, `endedAt` and `achievements`. `startedAt` and `endedAt` MUST be top-level ISO dates (`YYYY-MM-DD`), with `endedAt` being `null` while the work is ongoing; there is no nested `period` object. Each achievement MUST be `{ title, description, metric }`. `image` and `blurImage` follow the same rules as in the list and are `null` while the case has no picture.
+`GET /cases/:slug` SHALL return the extended view of a published case in the language chosen by `lang`: `slug`, `locale`, `name`, `category`, `stack`, `shortDescription`, `image`, `blurImage`, `description`, `role`, `projectLink`, `company`, `teamSize`, `startedAt`, `endedAt` and `achievements`. `startedAt` and `endedAt` MUST be top-level ISO dates (`YYYY-MM-DD`), with `endedAt` being `null` while the work is ongoing; there is no nested `period` object. Each achievement MUST be `{ title, description, metric }`. `image` and `blurImage` follow the same rules as in the list and are `null` while the case has no picture.
 
 #### Scenario: Detail of a published case
 
 - **WHEN** a published case with slug `spectre` exists and a client requests `GET /cases/spectre`
 - **THEN** the response is `200` with all the fields listed above
-- **AND** the response has no `published`, `sortOrder`, `createdAt`, `updatedAt`, `period` or internal storage key
+- **AND** the response has no `translations`, `published`, `sortOrder`, `createdAt`, `updatedAt`, `period` or internal storage key
+
+#### Scenario: Detail is localized
+
+- **WHEN** a published case has both translations and a client requests `GET /cases/spectre?lang=en`
+- **THEN** `name`, `category`, `shortDescription`, `description` and every achievement are the `en` texts and `locale` is `en`
 
 #### Scenario: Optional fields are null, not omitted
 

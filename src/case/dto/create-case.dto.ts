@@ -6,6 +6,7 @@ import {
   ArrayUnique,
   IsArray,
   IsBoolean,
+  IsDefined,
   IsEnum,
   IsInt,
   IsISO8601,
@@ -20,7 +21,7 @@ import {
 } from 'class-validator';
 
 import { Role } from '../../prisma/enums';
-import { AchievementDto } from './achievement.dto';
+import { CreateCaseTranslationsDto } from './create-case-translations.dto';
 import { IsNotBefore } from './is-not-before.decorator';
 
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -42,16 +43,6 @@ export class CreateCaseDto {
   slug!: string;
 
   @ApiProperty({
-    example: 'The Spectre Explorer',
-    description: 'Display name of the project',
-    maxLength: 100,
-  })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
-  name!: string;
-
-  @ApiProperty({
     example: 'https://thespectre.io',
     description: 'Link to the live project, http or https',
     maxLength: 100,
@@ -61,16 +52,6 @@ export class CreateCaseDto {
   @IsUrl({ protocols: ['http', 'https'] })
   @MaxLength(100)
   projectLink!: string;
-
-  @ApiProperty({
-    example: 'FinTech / Web App',
-    description: 'Kind of project, shown as a label',
-    maxLength: 50,
-  })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(50)
-  category!: string;
 
   @ApiProperty({
     type: [String],
@@ -90,27 +71,6 @@ export class CreateCaseDto {
   stack!: string[];
 
   @ApiProperty({
-    example:
-      'A large multi-feature service for browsing blockchain operations.',
-    description: 'One or two sentences for the list page',
-    maxLength: 500,
-  })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(500)
-  shortDescription!: string;
-
-  @ApiProperty({
-    example: 'A blockchain browser for exploring and analysing Ethereum data.',
-    description: 'Full description for the detail page',
-    maxLength: 2000,
-  })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(2000)
-  description!: string;
-
-  @ApiProperty({
     enum: Role,
     example: 'FRONTEND',
     description: "The author's role on the project",
@@ -119,15 +79,14 @@ export class CreateCaseDto {
   role!: Role;
 
   @ApiProperty({
-    type: () => [AchievementDto],
-    description: 'Results of the work; may be empty, at most 10',
-    maxItems: 10,
+    type: () => CreateCaseTranslationsDto,
+    description:
+      'Text of the case per language. `ru` is required; `en` is required when `published` is true',
   })
-  @IsArray()
-  @ArrayMaxSize(10)
-  @ValidateNested({ each: true })
-  @Type(() => AchievementDto)
-  achievements!: AchievementDto[];
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => CreateCaseTranslationsDto)
+  translations!: CreateCaseTranslationsDto;
 
   @ApiPropertyOptional({
     example: 'Acme',
@@ -183,7 +142,8 @@ export class CreateCaseDto {
   @ApiPropertyOptional({
     example: false,
     default: false,
-    description: 'Whether the case is visible in the public list and detail',
+    description:
+      'Whether the case is visible in the public list and detail. Possible only when the case has both `ru` and `en` (English) translations',
   })
   @IsOptional()
   @IsBoolean()

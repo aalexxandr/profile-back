@@ -35,18 +35,14 @@ describe('Case image (e2e)', () => {
   const tag = uniqueId('img', 14);
   const created: string[] = [];
 
+  // a case with both translations, so a published one is publishable
   const seed = async (suffix: string, published = true) => {
     const slug = `${tag}-${suffix}`;
     await prisma.cases.create({
       slug,
-      name: `Case ${suffix}`,
       projectLink: 'https://example.com',
-      category: 'Web App',
       stack: ['React'],
-      shortDescription: `Short ${suffix}`,
-      description: `Long ${suffix}`,
       role: 'FRONTEND',
-      achievements: [{ title: 't', description: 'd', metric: 'm' }],
       company: null,
       teamSize: null,
       startedAt: '2024-01-01',
@@ -55,6 +51,17 @@ describe('Case image (e2e)', () => {
       published,
     });
     created.push(slug);
+    for (const locale of ['ru', 'en'] as const) {
+      await prisma.caseTranslations.create({
+        caseSlug: slug,
+        locale,
+        name: `Case ${suffix} ${locale}`,
+        category: 'Web App',
+        shortDescription: `Short ${suffix}`,
+        description: `Long ${suffix}`,
+        achievements: [{ title: 't', description: 'd', metric: 'm' }],
+      });
+    }
     return slug;
   };
 
@@ -136,6 +143,22 @@ describe('Case image (e2e)', () => {
       expect(body.blurImage).toMatch(/^data:image\/webp;base64,/);
       expect(storage.has(keyOf(body))).toBe(true);
       expect(body).not.toHaveProperty('imageKey');
+    });
+
+    it('returns the full view with the text of both languages', async () => {
+      const slug = await seed('admin-view');
+
+      const res = await upload(slug, await solidJpeg(100, 100)).expect(200);
+      const body = res.body as { translations: Record<string, Body> };
+
+      expect(body.translations.ru).toMatchObject({
+        name: 'Case admin-view ru',
+      });
+      expect(body.translations.en).toMatchObject({
+        name: 'Case admin-view en',
+      });
+      expect(body).not.toHaveProperty('name');
+      expect(body).not.toHaveProperty('locale');
     });
 
     it('stores genuine WebP bytes no wider than 1920 px', async () => {
@@ -343,15 +366,19 @@ describe('Case image (e2e)', () => {
         .set(...adminAuth())
         .send({
           slug: `${tag}-post`,
-          name: 'x',
           projectLink: 'https://example.com',
-          category: 'c',
           stack: ['React'],
-          shortDescription: 's',
-          description: 'd',
           role: 'FRONTEND',
-          achievements: [{ title: 't', description: 'd', metric: 'm' }],
           startedAt: '2024-01-01',
+          translations: {
+            ru: {
+              name: 'x',
+              category: 'c',
+              shortDescription: 's',
+              description: 'd',
+              achievements: [{ title: 't', description: 'd', metric: 'm' }],
+            },
+          },
           blurImage: 'data:image/webp;base64,AAAA',
         })
         .expect(400);
