@@ -56,14 +56,14 @@ export class CreateCaseDto {
   @ApiProperty({
     type: [String],
     example: ['React', 'TypeScript', 'MobX'],
-    description: 'Technologies used: 1 to 10 unique non-empty names',
+    description: 'Technologies used: 1 to 30 unique non-empty names',
     minItems: 1,
-    maxItems: 10,
+    maxItems: 30,
     uniqueItems: true,
   })
   @IsArray()
   @ArrayUnique()
-  @ArrayMaxSize(10)
+  @ArrayMaxSize(30)
   @ArrayNotEmpty()
   @IsString({ each: true })
   @IsNotEmpty({ each: true })

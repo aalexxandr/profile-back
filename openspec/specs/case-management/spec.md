@@ -48,7 +48,7 @@ The API SHALL reject with `400` a create or update body in which `slug` is not l
 
 ### Requirement: Validate stack and team size
 
-The API SHALL reject with `400` a body in which `stack` is not a non-empty array of at most 10 unique non-empty strings, or `teamSize` is present and is not an integer >= 1.
+The API SHALL reject with `400` a body in which `stack` is not a non-empty array of at most 30 unique non-empty strings, or `teamSize` is present and is not an integer >= 1.
 
 #### Scenario: Team size below one
 

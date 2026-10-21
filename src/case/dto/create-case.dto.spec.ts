@@ -54,6 +54,10 @@ describe('CreateCaseDto', () => {
         },
       ],
       ['slug of 50 characters', { slug: 'a'.repeat(50) }],
+      [
+        '30 stack entries',
+        { stack: Array.from({ length: 30 }, (_, i) => `t${i}`) },
+      ],
       ['teamSize of 1', { teamSize: 1 }],
       ['endedAt equal to startedAt', { endedAt: '2024-01-01' }],
       [
@@ -92,8 +96,8 @@ describe('CreateCaseDto', () => {
       ['empty stack', { stack: [] }],
       ['duplicate stack entries', { stack: ['React', 'React'] }],
       [
-        '11 stack entries',
-        { stack: Array.from({ length: 11 }, (_, i) => `t${i}`) },
+        '31 stack entries',
+        { stack: Array.from({ length: 31 }, (_, i) => `t${i}`) },
       ],
       ['teamSize of 0', { teamSize: 0 }],
       ['fractional teamSize', { teamSize: 1.5 }],
