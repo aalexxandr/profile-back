@@ -27,7 +27,11 @@ export type CaseText = Pick<
  * picture (`null` without one).
  */
 export type CaseView = CaseRow &
-  CaseText & { image: string | null; locale: Locale };
+  CaseText & {
+    image: string | null;
+    backgroundImage: string | null;
+    locale: Locale;
+  };
 
 /**
  * The full view of a case after a write: a row, the computed picture URL
@@ -35,5 +39,9 @@ export type CaseView = CaseRow &
  */
 export type CaseFullView = CaseRow & {
   image: string | null;
+  backgroundImage: string | null;
   translations: Record<Locale, CaseText | null>;
 };
+
+/** The two independent pictures a case can have. */
+export type CaseImageSlot = 'image' | 'background';

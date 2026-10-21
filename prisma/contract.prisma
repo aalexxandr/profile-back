@@ -12,6 +12,8 @@ model Case {
   stack            String[]
   imageKey         String? @map("image_key")
   blurImage        String? @map("blur_image")
+  backgroundImageKey  String? @map("background_image_key")
+  backgroundBlurImage String? @map("background_blur_image")
   role             pg.enum(Role)
   company          String?
   teamSize         Int? @map("team_size")

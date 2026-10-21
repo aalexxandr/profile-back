@@ -1,4 +1,4 @@
-import type { Locale } from './case.types';
+import type { CaseImageSlot, CaseRow, Locale } from './case.types';
 import { CaseDetailDto } from './dto/case-detail.dto';
 import { CaseFullDto } from './dto/case-full.dto';
 import { CaseListItemDto } from './dto/case-list-item.dto';
@@ -45,3 +45,57 @@ export const LANG_QUERY = {
 
 /** Larger uploads are refused with 413 before they are processed. */
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Where each picture of a case lives: the row columns holding its storage key
+ * and blur placeholder, and the folder (under `cases/<slug>/`) of its object.
+ */
+export const IMAGE_SLOTS = {
+  image: { keyColumn: 'imageKey', blurColumn: 'blurImage', folder: '' },
+  background: {
+    keyColumn: 'backgroundImageKey',
+    blurColumn: 'backgroundBlurImage',
+    folder: 'background/',
+  },
+} as const satisfies Record<
+  CaseImageSlot,
+  {
+    keyColumn: keyof CaseRow;
+    blurColumn: keyof CaseRow;
+    folder: string;
+  }
+>;
+
+/** Swagger body of a picture upload: one binary field `file`. */
+export const IMAGE_UPLOAD_BODY = {
+  required: true,
+  schema: {
+    type: 'object',
+    required: ['file'],
+    properties: {
+      file: {
+        type: 'string',
+        format: 'binary',
+        description:
+          'The picture: JPEG, PNG or WebP (recognised by content, not by name), up to 10 MB',
+      },
+    },
+  },
+} as const;
+
+/** Swagger body of a background upload: one binary field `file`. */
+export const BACKGROUND_UPLOAD_BODY = {
+  required: true,
+  schema: {
+    type: 'object',
+    required: ['file'],
+    properties: {
+      file: {
+        type: 'string',
+        format: 'binary',
+        description:
+          'The background picture: JPEG, PNG or WebP (recognised by content, not by name), up to 10 MB',
+      },
+    },
+  },
+} as const;

@@ -872,6 +872,260 @@ describe('CaseService', () => {
     });
   });
 
+  describe('setBackground', () => {
+    const IMAGE = Buffer.from('optimized background bytes');
+    const BLUR = 'data:image/webp;base64,BBBB';
+    const NEW_KEY = `cases/spectre/background/${createHash('sha256').update(IMAGE).digest('hex').slice(0, 16)}.webp`;
+    const OLD_KEY = 'cases/spectre/background/0000000000000000.webp';
+    const PICTURE_KEY = 'cases/spectre/1111111111111111.webp';
+    const upload = Buffer.from('uploaded file');
+
+    beforeEach(() => {
+      processImage.mockResolvedValue({ image: IMAGE, blur: BLUR });
+      first.mockResolvedValue(caseRow());
+      update.mockImplementation((data) =>
+        Promise.resolve(caseRow(data as Partial<CaseRow>)),
+      );
+      translationsAll.mockResolvedValue([
+        translationRow({ locale: 'ru' }),
+        translationRow({ locale: 'en', ...caseText({ name: 'Spectre' }) }),
+      ]);
+      jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    });
+
+    it('throws NotFoundException for an unknown case and does no work', async () => {
+      first.mockResolvedValue(null);
+
+      await expect(service.setBackground('nope', upload)).rejects.toThrow(
+        NotFoundException,
+      );
+
+      expect(processImage).not.toHaveBeenCalled();
+      expect(storagePut).not.toHaveBeenCalled();
+    });
+
+    it('uploads the optimized bytes under the background folder as image/webp', async () => {
+      await service.setBackground('spectre', upload);
+
+      expect(processImage).toHaveBeenCalledWith(upload);
+      expect(storagePut).toHaveBeenCalledWith(NEW_KEY, IMAGE, 'image/webp');
+    });
+
+    it('saves only the background columns and returns the background URL', async () => {
+      const view = await service.setBackground('spectre', upload);
+
+      expect(update).toHaveBeenCalledWith({
+        backgroundImageKey: NEW_KEY,
+        backgroundBlurImage: BLUR,
+      });
+      expect(view.backgroundImage).toBe(publicUrl(NEW_KEY));
+      expect(view.backgroundBlurImage).toBe(BLUR);
+    });
+
+    it('leaves the case picture as it was', async () => {
+      const withPicture = { imageKey: PICTURE_KEY, blurImage: 'data:x' };
+      first.mockResolvedValue(caseRow(withPicture));
+      // the database returns the whole row, not only the changed columns
+      update.mockImplementation((data) =>
+        Promise.resolve(
+          caseRow({ ...withPicture, ...(data as Partial<CaseRow>) }),
+        ),
+      );
+
+      const view = await service.setBackground('spectre', upload);
+
+      expect(Object.keys(update.mock.calls[0]?.[0] ?? {}).sort()).toEqual([
+        'backgroundBlurImage',
+        'backgroundImageKey',
+      ]);
+      expect(view.image).toBe(publicUrl(PICTURE_KEY));
+      expect(storageDelete).not.toHaveBeenCalledWith(PICTURE_KEY);
+    });
+
+    it('returns the full view with the translations of the case', async () => {
+      const view = await service.setBackground('spectre', upload);
+
+      expect(view.translations.ru).toMatchObject({ name: 'Спектр' });
+      expect(view.translations.en).toMatchObject({ name: 'Spectre' });
+    });
+
+    it('returns a null background URL when the row has none', async () => {
+      update.mockResolvedValue(caseRow());
+
+      const view = await service.setBackground('spectre', upload);
+
+      expect(view.backgroundImage).toBeNull();
+    });
+
+    it('deletes the previous background after the new one is saved', async () => {
+      first.mockResolvedValue(caseRow({ backgroundImageKey: OLD_KEY }));
+
+      await service.setBackground('spectre', upload);
+
+      expect(storageDelete).toHaveBeenCalledTimes(1);
+      expect(storageDelete).toHaveBeenCalledWith(OLD_KEY);
+      const savedAt = update.mock.invocationCallOrder[0] ?? Infinity;
+      const deletedAt = storageDelete.mock.invocationCallOrder[0] ?? 0;
+      expect(deletedAt).toBeGreaterThan(savedAt);
+    });
+
+    it('keeps the object when the same background is uploaded again', async () => {
+      first.mockResolvedValue(caseRow({ backgroundImageKey: NEW_KEY }));
+
+      await service.setBackground('spectre', upload);
+
+      expect(storageDelete).not.toHaveBeenCalled();
+    });
+
+    it('rethrows a rejected file and neither uploads nor saves anything', async () => {
+      const rejection = new BadRequestException('not an image');
+      processImage.mockRejectedValue(rejection);
+
+      await expect(service.setBackground('spectre', upload)).rejects.toBe(
+        rejection,
+      );
+
+      expect(storagePut).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('leaves the case untouched when the storage fails', async () => {
+      const error = new Error('S3 is down');
+      storagePut.mockRejectedValue(error);
+      first.mockResolvedValue(caseRow({ backgroundImageKey: OLD_KEY }));
+
+      await expect(service.setBackground('spectre', upload)).rejects.toBe(
+        error,
+      );
+
+      expect(update).not.toHaveBeenCalled();
+      expect(storageDelete).not.toHaveBeenCalled();
+    });
+
+    it('removes the new object when saving the case fails', async () => {
+      const error = new Error('database error');
+      update.mockRejectedValue(error);
+      first.mockResolvedValue(caseRow({ backgroundImageKey: OLD_KEY }));
+
+      await expect(service.setBackground('spectre', upload)).rejects.toBe(
+        error,
+      );
+
+      expect(storageDelete).toHaveBeenCalledTimes(1);
+      expect(storageDelete).toHaveBeenCalledWith(NEW_KEY);
+    });
+
+    it('does not remove the object the case already uses when saving fails', async () => {
+      update.mockRejectedValue(new Error('database error'));
+      first.mockResolvedValue(caseRow({ backgroundImageKey: NEW_KEY }));
+
+      await expect(service.setBackground('spectre', upload)).rejects.toThrow(
+        'database error',
+      );
+
+      expect(storageDelete).not.toHaveBeenCalled();
+    });
+
+    it('treats a case that vanished during the upload as not found and cleans up', async () => {
+      update.mockResolvedValue(null);
+
+      await expect(service.setBackground('spectre', upload)).rejects.toThrow(
+        NotFoundException,
+      );
+
+      expect(storageDelete).toHaveBeenCalledWith(NEW_KEY);
+    });
+
+    it('still succeeds when the previous background cannot be deleted', async () => {
+      first.mockResolvedValue(caseRow({ backgroundImageKey: OLD_KEY }));
+      storageDelete.mockRejectedValue(new Error('S3 is down'));
+
+      await expect(
+        service.setBackground('spectre', upload),
+      ).resolves.toMatchObject({ backgroundImage: publicUrl(NEW_KEY) });
+    });
+  });
+
+  describe('removeBackground', () => {
+    const KEY = 'cases/spectre/background/ab12.webp';
+
+    beforeEach(() => {
+      update.mockImplementation((data) =>
+        Promise.resolve(caseRow(data as Partial<CaseRow>)),
+      );
+      jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    });
+
+    it('throws NotFoundException for an unknown case', async () => {
+      first.mockResolvedValue(null);
+
+      await expect(service.removeBackground('nope')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('clears only the background columns and deletes the stored object', async () => {
+      first.mockResolvedValue(
+        caseRow({
+          imageKey: 'cases/spectre/picture.webp',
+          backgroundImageKey: KEY,
+          backgroundBlurImage: 'data:x',
+        }),
+      );
+
+      await expect(
+        service.removeBackground('spectre'),
+      ).resolves.toBeUndefined();
+
+      expect(update).toHaveBeenCalledWith({
+        backgroundImageKey: null,
+        backgroundBlurImage: null,
+      });
+      expect(storageDelete).toHaveBeenCalledTimes(1);
+      expect(storageDelete).toHaveBeenCalledWith(KEY);
+    });
+
+    it('deletes the object only after the row is saved', async () => {
+      first.mockResolvedValue(caseRow({ backgroundImageKey: KEY }));
+
+      await service.removeBackground('spectre');
+
+      const savedAt = update.mock.invocationCallOrder[0] ?? Infinity;
+      const deletedAt = storageDelete.mock.invocationCallOrder[0] ?? 0;
+      expect(deletedAt).toBeGreaterThan(savedAt);
+    });
+
+    it('is idempotent for a case without a background', async () => {
+      first.mockResolvedValue(caseRow());
+
+      await expect(
+        service.removeBackground('spectre'),
+      ).resolves.toBeUndefined();
+
+      expect(update).not.toHaveBeenCalled();
+      expect(storageDelete).not.toHaveBeenCalled();
+    });
+
+    it('still succeeds when the object cannot be deleted', async () => {
+      first.mockResolvedValue(caseRow({ backgroundImageKey: KEY }));
+      storageDelete.mockRejectedValue(new Error('S3 is down'));
+
+      await expect(
+        service.removeBackground('spectre'),
+      ).resolves.toBeUndefined();
+    });
+
+    it('keeps the object when saving the case fails', async () => {
+      first.mockResolvedValue(caseRow({ backgroundImageKey: KEY }));
+      const error = new Error('database error');
+      update.mockRejectedValue(error);
+
+      await expect(service.removeBackground('spectre')).rejects.toBe(error);
+
+      expect(storageDelete).not.toHaveBeenCalled();
+    });
+  });
+
   describe('removeImage', () => {
     const KEY = 'cases/spectre/ab12.webp';
 
@@ -962,6 +1216,52 @@ describe('CaseService', () => {
       await service.deleteCase('spectre');
 
       expect(storageDelete).toHaveBeenCalledWith('cases/spectre/ab12.webp');
+    });
+
+    it('deletes the stored background of the removed case too', async () => {
+      remove.mockResolvedValue(
+        caseRow({
+          imageKey: 'cases/spectre/ab12.webp',
+          backgroundImageKey: 'cases/spectre/background/cd34.webp',
+        }),
+      );
+
+      await service.deleteCase('spectre');
+
+      expect(storageDelete).toHaveBeenCalledTimes(2);
+      expect(storageDelete).toHaveBeenCalledWith('cases/spectre/ab12.webp');
+      expect(storageDelete).toHaveBeenCalledWith(
+        'cases/spectre/background/cd34.webp',
+      );
+    });
+
+    it('deletes the background even when the case has no picture', async () => {
+      remove.mockResolvedValue(
+        caseRow({ backgroundImageKey: 'cases/spectre/background/cd34.webp' }),
+      );
+
+      await service.deleteCase('spectre');
+
+      expect(storageDelete).toHaveBeenCalledWith(
+        'cases/spectre/background/cd34.webp',
+      );
+    });
+
+    it('still removes the background when the picture cannot be deleted', async () => {
+      jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      remove.mockResolvedValue(
+        caseRow({
+          imageKey: 'cases/spectre/ab12.webp',
+          backgroundImageKey: 'cases/spectre/background/cd34.webp',
+        }),
+      );
+      storageDelete.mockRejectedValueOnce(new Error('S3 is down'));
+
+      await expect(service.deleteCase('spectre')).resolves.toBeUndefined();
+
+      expect(storageDelete).toHaveBeenCalledWith(
+        'cases/spectre/background/cd34.webp',
+      );
     });
 
     it('touches no storage for a case without a picture', async () => {

@@ -14,6 +14,8 @@ export const caseRow = (overrides: Partial<CaseRow> = {}): CaseRow => ({
   stack: ['React', 'TypeScript'],
   imageKey: null,
   blurImage: null,
+  backgroundImageKey: null,
+  backgroundBlurImage: null,
   role: 'FRONTEND',
   company: 'Acme',
   teamSize: 5,
@@ -70,6 +72,7 @@ export const caseView = (overrides: Partial<CaseView> = {}): CaseView => ({
   ...caseRow(),
   ...caseText(),
   image: null,
+  backgroundImage: null,
   locale: 'ru',
   ...overrides,
 });
@@ -80,6 +83,7 @@ export const caseAdminView = (
 ): CaseFullView => ({
   ...caseRow(),
   image: null,
+  backgroundImage: null,
   translations: { ru: caseText(), en: caseText({ name: 'Spectre' }) },
   ...overrides,
 });
