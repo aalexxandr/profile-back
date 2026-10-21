@@ -9,6 +9,27 @@ import { CaseListItemDto } from './case-list-item.dto';
 export class CaseDetailDto extends CaseListItemDto {
   @Expose()
   @ApiProperty({
+    type: String,
+    nullable: true,
+    example:
+      'https://storage.example.com/cases/spectre/background/3f9a1c2b7d4e5f60.webp',
+    description:
+      'Absolute public URL of the case background picture (WebP, at most 1920 px wide); null while the case has no background. Independent of `image`',
+  })
+  backgroundImage!: string | null;
+
+  @Expose()
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'data:image/webp;base64,UklGRkoAAABXRUJQVlA4ID4AAADwAQCdASoU...',
+    description:
+      'Tiny blurred preview of the background (about 20 px wide) as a data: URI, generated on upload. Show it instantly as a placeholder while `backgroundImage` loads; null while the case has no background',
+  })
+  backgroundBlurImage!: string | null;
+
+  @Expose()
+  @ApiProperty({
     example: 'A blockchain browser for exploring and analysing Ethereum data.',
     description: 'Full description for the detail page',
   })

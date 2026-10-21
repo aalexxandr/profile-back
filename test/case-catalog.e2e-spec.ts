@@ -11,6 +11,7 @@ type Body = Record<string, unknown>;
 // the fake storage that `createTestApp` plugs in builds URLs on this base
 const STORAGE_URL = 'https://storage.test';
 const PIC_KEY = 'cases/example/ab12cd34ef56ab78.webp';
+const BG_KEY = 'cases/example/background/cd34ef56ab78ab12.webp';
 
 describe('Case catalog (e2e)', () => {
   let app: INestApplication;
@@ -133,6 +134,20 @@ describe('Case catalog (e2e)', () => {
         blurImage: 'data:image/webp;base64,AAAA',
       });
       expect(item).not.toHaveProperty('imageKey');
+    });
+
+    it('does not put the background into the list', async () => {
+      const slug = await seed('list-bg', {
+        backgroundImageKey: BG_KEY,
+        backgroundBlurImage: 'data:image/webp;base64,BBBB',
+      });
+
+      const item = (await listOurs()).find((i) => i.slug === slug);
+
+      expect(item).toBeDefined();
+      expect(item).not.toHaveProperty('backgroundImage');
+      expect(item).not.toHaveProperty('backgroundBlurImage');
+      expect(item).not.toHaveProperty('backgroundImageKey');
     });
 
     it('puts a lower sortOrder first', async () => {
@@ -344,6 +359,8 @@ describe('Case catalog (e2e)', () => {
 
       expect(Object.keys(body).sort()).toEqual([
         'achievements',
+        'backgroundBlurImage',
+        'backgroundImage',
         'blurImage',
         'category',
         'company',
@@ -382,7 +399,24 @@ describe('Case catalog (e2e)', () => {
         endedAt: null,
         image: null,
         blurImage: null,
+        backgroundImage: null,
+        backgroundBlurImage: null,
       });
+    });
+
+    it('returns the absolute background URL and its placeholder, never the key', async () => {
+      const slug = await seed('detail-bg', {
+        backgroundImageKey: BG_KEY,
+        backgroundBlurImage: 'data:image/webp;base64,BBBB',
+      });
+
+      const res = await request(server).get(`/cases/${slug}`).expect(200);
+
+      expect(res.body).toMatchObject({
+        backgroundImage: `${STORAGE_URL}/${BG_KEY}`,
+        backgroundBlurImage: 'data:image/webp;base64,BBBB',
+      });
+      expect(res.body).not.toHaveProperty('backgroundImageKey');
     });
 
     it('returns the absolute picture URL and the placeholder of a case with a picture', async () => {

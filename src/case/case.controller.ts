@@ -32,8 +32,10 @@ import { Public } from '../auth/public.decorator';
 import { ApiAdminAuth } from '../common/swagger/api-admin-auth.decorator';
 import { ApiErrorResponse } from '../common/swagger/api-error-response.decorator';
 import {
+  BACKGROUND_UPLOAD_BODY,
   DETAIL,
   FULL,
+  IMAGE_UPLOAD_BODY,
   LANG_QUERY,
   LIST_ITEM,
   MAX_IMAGE_BYTES,
@@ -149,21 +151,7 @@ export class CaseController {
     FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }),
   )
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    required: true,
-    schema: {
-      type: 'object',
-      required: ['file'],
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-          description:
-            'The picture: JPEG, PNG or WebP (recognised by content, not by name), up to 10 MB',
-        },
-      },
-    },
-  })
+  @ApiBody(IMAGE_UPLOAD_BODY)
   @ApiOperation({
     summary: 'Upload the picture of a case',
     description:
@@ -206,5 +194,56 @@ export class CaseController {
   @ApiErrorResponse(404, 'Unknown case')
   removeImage(@Param('slug') slug: string) {
     return this.caseService.removeImage(slug);
+  }
+
+  @Put(':slug/background')
+  @ApiAdminAuth()
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(BACKGROUND_UPLOAD_BODY)
+  @ApiOperation({
+    summary: 'Upload the background of a case',
+    description:
+      'Admin only. Sets or replaces the background picture of a case, drafts included. It is independent of the case picture (`PUT /cases/{slug}/image`), which stays unchanged. Send one file in the multipart field `file`. The server re-encodes it to a real WebP (at most 1920 px wide, never enlarged, EXIF orientation applied, metadata removed) and generates the blurred placeholder itself, so only one version is ever uploaded. The response is the case with the new `backgroundImage` URL and `backgroundBlurImage` data URI and the text of every language. A previous background is removed from the storage. Uploading the same file again changes nothing. The background is shown in the public detail view, not in the list.',
+  })
+  @ApiParam(SLUG_PARAM)
+  @ApiOkResponse({
+    type: CaseFullDto,
+    description: 'The case with its new background and all its translations',
+  })
+  @ApiErrorResponse(
+    400,
+    'The `file` field is missing, or the file is not a valid JPEG, PNG or WebP image',
+  )
+  @ApiErrorResponse(404, 'Unknown case')
+  @ApiErrorResponse(413, 'The file is larger than 10 MB')
+  @SerializeOptions(FULL)
+  setBackground(
+    @Param('slug') slug: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    if (!file) {
+      throw new BadRequestException(
+        'The field "file" with a picture is required',
+      );
+    }
+    return this.caseService.setBackground(slug, file.buffer);
+  }
+
+  @Delete(':slug/background')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiAdminAuth()
+  @ApiOperation({
+    summary: 'Remove the background of a case',
+    description:
+      'Admin only. Clears `backgroundImage` and `backgroundBlurImage` of the case and removes the stored file; the case picture stays. Repeating the call for a case that has no background is harmless and answers 204 as well.',
+  })
+  @ApiParam(SLUG_PARAM)
+  @ApiNoContentResponse({ description: 'The case has no background now' })
+  @ApiErrorResponse(404, 'Unknown case')
+  removeBackground(@Param('slug') slug: string) {
+    return this.caseService.removeBackground(slug);
   }
 }

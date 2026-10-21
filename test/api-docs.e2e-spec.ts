@@ -71,6 +71,8 @@ const OPERATIONS: Array<[string, string, string[]]> = [
   ['delete', '/cases/{slug}', ['401', '404']],
   ['put', '/cases/{slug}/image', ['400', '401', '404', '413']],
   ['delete', '/cases/{slug}/image', ['401', '404']],
+  ['put', '/cases/{slug}/background', ['400', '401', '404', '413']],
+  ['delete', '/cases/{slug}/background', ['401', '404']],
 ];
 
 // operations that need the admin token, and the two that stay public
@@ -109,6 +111,8 @@ const TRANSLATION_FIELDS = [
 ];
 
 const ADMIN_FIELDS = [
+  'backgroundBlurImage',
+  'backgroundImage',
   'blurImage',
   'company',
   'endedAt',
@@ -129,6 +133,7 @@ const ADMIN_RESPONSES: Array<[string, string, string]> = [
   ['post', '/cases', '201'],
   ['patch', '/cases/{slug}', '200'],
   ['put', '/cases/{slug}/image', '200'],
+  ['put', '/cases/{slug}/background', '200'],
 ];
 
 // every `$ref` string found anywhere in the document
@@ -232,6 +237,8 @@ describe('API documentation (e2e)', () => {
       ['delete', '/cases/{slug}'],
       ['put', '/cases/{slug}/image'],
       ['delete', '/cases/{slug}/image'],
+      ['put', '/cases/{slug}/background'],
+      ['delete', '/cases/{slug}/background'],
     ])(
       '%s %s documents slug with a description and an example',
       (method, path) => {
@@ -480,6 +487,72 @@ describe('API documentation (e2e)', () => {
         }
       },
     );
+  });
+
+  describe('case background', () => {
+    const BACKGROUND_FIELDS = ['backgroundImage', 'backgroundBlurImage'];
+
+    it('PUT /cases/{slug}/background takes a multipart body with a required binary file', () => {
+      const body = operation('put', '/cases/{slug}/background').requestBody;
+      const multipart = body?.content?.['multipart/form-data']?.schema;
+
+      expect(multipart?.type).toBe('object');
+      expect(multipart?.required).toEqual(['file']);
+      expect(multipart?.properties?.file?.type).toBe('string');
+      expect(multipart?.properties?.file?.format).toBe('binary');
+      expect(multipart?.properties?.file?.description?.trim()).toBeTruthy();
+    });
+
+    it('PUT /cases/{slug}/background states the accepted formats and the size limit', () => {
+      const body = operation('put', '/cases/{slug}/background').requestBody;
+      const description =
+        body?.content?.['multipart/form-data']?.schema?.properties?.file
+          ?.description ?? '';
+
+      expect(description).toMatch(/JPEG/);
+      expect(description).toMatch(/PNG/);
+      expect(description).toMatch(/WebP/);
+      expect(description).toMatch(/10 MB/);
+    });
+
+    it('PUT returns the full view and DELETE answers 204', () => {
+      const put = operation('put', '/cases/{slug}/background').responses;
+      const del = operation('delete', '/cases/{slug}/background').responses;
+
+      expect(put['200']?.content?.['application/json']?.schema?.$ref).toBe(
+        '#/components/schemas/CaseFullDto',
+      );
+      expect(del['204']).toBeDefined();
+    });
+
+    it.each(['CaseDetailDto', 'CaseFullDto'])(
+      '%s documents the background fields as nullable strings',
+      (name) => {
+        const props = schema(name).properties ?? {};
+
+        for (const field of BACKGROUND_FIELDS) {
+          expect(props[field]?.type).toBe('string');
+          expect(props[field]?.nullable).toBe(true);
+          expect(props[field]?.description?.trim()).toBeTruthy();
+          expect(props[field]?.example).toBeDefined();
+        }
+      },
+    );
+
+    it.each(['CaseListItemDto', 'CreateCaseDto', 'UpdateCaseDto'])(
+      '%s has no background fields',
+      (name) => {
+        for (const field of BACKGROUND_FIELDS) {
+          expect(propertyNames(name)).not.toContain(field);
+        }
+      },
+    );
+
+    it('exposes no background storage key in any schema', () => {
+      for (const name of Object.keys(doc.components.schemas)) {
+        expect(propertyNames(name)).not.toContain('backgroundImageKey');
+      }
+    });
   });
 
   describe('authentication', () => {

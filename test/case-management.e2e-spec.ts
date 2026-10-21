@@ -80,6 +80,20 @@ describe('Case management (e2e)', () => {
     await app.close();
   });
 
+  describe('full view', () => {
+    it('creates a case without a picture or a background', async () => {
+      const res = await post(validCase('no-bg')).expect(201);
+
+      expect(res.body).toMatchObject({
+        image: null,
+        blurImage: null,
+        backgroundImage: null,
+        backgroundBlurImage: null,
+      });
+      expect(res.body).not.toHaveProperty('backgroundImageKey');
+    });
+  });
+
   describe('admin token', () => {
     it('refuses POST without a token and creates nothing', async () => {
       const body = validCase('noauth');

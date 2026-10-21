@@ -1,0 +1,86 @@
+[
+  {
+    "id": "column.public.cases.background_blur_image",
+    "label": "Add column \"background_blur_image\" to \"cases\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "background_blur_image",
+        "table": "cases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"background_blur_image\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "background_blur_image"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"background_blur_image\"",
+        "sql": "ALTER TABLE \"public\".\"cases\" ADD COLUMN \"background_blur_image\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"background_blur_image\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "background_blur_image"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.cases.background_image_key",
+    "label": "Add column \"background_image_key\" to \"cases\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "background_image_key",
+        "table": "cases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"background_image_key\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "background_image_key"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"background_image_key\"",
+        "sql": "ALTER TABLE \"public\".\"cases\" ADD COLUMN \"background_image_key\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"background_image_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "background_image_key"
+        ]
+      }
+    ]
+  }
+]
