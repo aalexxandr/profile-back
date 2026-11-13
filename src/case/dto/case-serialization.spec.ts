@@ -123,6 +123,14 @@ describe('case response serialization', () => {
       expect(items[0]).not.toHaveProperty('imageKey');
     });
 
+    it('keeps projectLink as null when the case has no link', async () => {
+      const items = (await serialize('findAll', [
+        caseView({ projectLink: null }),
+      ])) as unknown[];
+
+      expect(items[0]).toHaveProperty('projectLink', null);
+    });
+
     it('sends null for both picture fields when there is no picture', async () => {
       const items = (await serialize('findAll', [caseView()])) as unknown[];
 

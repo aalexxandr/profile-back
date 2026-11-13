@@ -42,16 +42,18 @@ export class CreateCaseDto {
   @Matches(KEBAB_CASE, { message: 'slug must be lowercase kebab-case' })
   slug!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'https://thespectre.io',
-    description: 'Link to the live project, http or https',
+    description:
+      'Link to the live project, http or https; omit if the project has no public link',
     maxLength: 100,
   })
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   @IsUrl({ protocols: ['http', 'https'] })
   @MaxLength(100)
-  projectLink!: string;
+  projectLink?: string;
 
   @ApiProperty({
     type: [String],

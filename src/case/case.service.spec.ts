@@ -363,6 +363,14 @@ describe('CaseService', () => {
       });
     });
 
+    it('stores null when the case has no link', async () => {
+      await service.createCase(createDto({ projectLink: undefined }));
+
+      expect(txCaseCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ projectLink: null }),
+      );
+    });
+
     it('does not put the text into the cases row', async () => {
       await service.createCase(createDto());
 

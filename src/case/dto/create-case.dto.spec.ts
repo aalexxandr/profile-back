@@ -42,6 +42,11 @@ describe('CreateCaseDto', () => {
   describe('accepts', () => {
     it.each([
       ['required fields only', {}],
+      ['no link', { projectLink: undefined }],
+      [
+        'a link of 100 characters',
+        { projectLink: `https://example.com/${'a'.repeat(80)}` },
+      ],
       [
         'all optional fields',
         {
@@ -87,6 +92,7 @@ describe('CreateCaseDto', () => {
       ['empty slug', { slug: '' }],
       ['slug of 51 characters', { slug: 'a'.repeat(51) }],
       ['non-http link', { projectLink: 'ftp://example.com' }],
+      ['empty link', { projectLink: '' }],
       ['unknown field', { foo: 1 }],
     ])('%s', async (_name, overrides) => {
       expect(await errorsFor(validCase(overrides))).not.toHaveLength(0);

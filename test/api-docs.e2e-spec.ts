@@ -93,14 +93,7 @@ const CREATE_FIELDS = [
   'translations',
 ];
 
-const CREATE_REQUIRED = [
-  'projectLink',
-  'role',
-  'slug',
-  'stack',
-  'startedAt',
-  'translations',
-];
+const CREATE_REQUIRED = ['role', 'slug', 'stack', 'startedAt', 'translations'];
 
 const TRANSLATION_FIELDS = [
   'achievements',
@@ -268,6 +261,7 @@ describe('API documentation (e2e)', () => {
 
       expect(props.slug?.maxLength).toBe(50);
       expect(props.slug?.pattern).toBeTruthy();
+      expect(props.projectLink?.maxLength).toBe(100);
       expect(props.teamSize?.minimum).toBe(1);
       expect([...(props.role?.enum ?? [])].sort()).toEqual([
         'FRONTEND',
@@ -421,6 +415,19 @@ describe('API documentation (e2e)', () => {
       expect(create).toMatch(/English|en\b/);
       expect(patch).toMatch(/English|en\b/);
     });
+  });
+
+  describe('project link', () => {
+    it.each(['CaseListItemDto', 'CaseDetailDto', 'CaseFullDto'])(
+      '%s documents projectLink as a required nullable string',
+      (name) => {
+        const props = schema(name).properties ?? {};
+
+        expect(props.projectLink?.type).toBe('string');
+        expect(props.projectLink?.nullable).toBe(true);
+        expect(schema(name).required).toContain('projectLink');
+      },
+    );
   });
 
   describe('case image', () => {

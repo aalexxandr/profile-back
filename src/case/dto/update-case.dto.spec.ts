@@ -14,6 +14,7 @@ describe('UpdateCaseDto', () => {
     ['empty body', {}],
     ['only published', { published: true }],
     ['only teamSize', { teamSize: 3 }],
+    ['only a link', { projectLink: 'https://example.com' }],
     ['empty translations', { translations: {} }],
     ['only a Russian name', { translations: { ru: { name: 'New name' } } }],
     ['only an English name', { translations: { en: { name: 'New name' } } }],

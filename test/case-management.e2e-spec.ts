@@ -147,12 +147,13 @@ describe('Case management (e2e)', () => {
 
   describe('POST /cases', () => {
     it('creates a hidden draft from the required fields and the Russian text only', async () => {
-      const body = validCase('min');
+      const body = validCase('min', { projectLink: undefined });
 
       const res = await post(body).expect(201);
 
       expect(res.body).toMatchObject({
         slug: body.slug,
+        projectLink: null,
         company: null,
         teamSize: null,
         startedAt: '2024-01-01',
@@ -166,6 +167,19 @@ describe('Case management (e2e)', () => {
       expect(res.body).not.toHaveProperty('name');
       expect(res.body).not.toHaveProperty('locale');
       expect(await listedSlugs()).not.toContain(body.slug);
+    });
+
+    it('publishes a case without a link and lists it with projectLink null', async () => {
+      const body = validCase('nolink', {
+        projectLink: undefined,
+        published: true,
+        translations: bothLanguages('nolink'),
+      });
+
+      const res = await post(body).expect(201);
+
+      expect(res.body).toMatchObject({ projectLink: null, published: true });
+      expect(await listedSlugs()).toContain(body.slug);
     });
 
     it('stores one translation row per language it was given', async () => {
@@ -235,6 +249,7 @@ describe('Case management (e2e)', () => {
     it.each([
       ['a slug that is not kebab-case', { slug: 'My Case!' }],
       ['a non-http link', { projectLink: 'ftp://example.com' }],
+      ['an empty link', { projectLink: '' }],
       ['an unknown field', { foo: 1 }],
       ['a team size of 0', { teamSize: 0 }],
       ['duplicate stack entries', { stack: ['React', 'React'] }],
@@ -310,6 +325,26 @@ describe('Case management (e2e)', () => {
   });
 
   describe('PATCH /cases/:slug', () => {
+    it('adds a link to a case that has none', async () => {
+      const body = validCase('add-link', { projectLink: undefined });
+      await post(body).expect(201);
+
+      const res = await patch(body.slug, {
+        projectLink: 'https://example.com',
+      }).expect(200);
+
+      expect(res.body).toMatchObject({ projectLink: 'https://example.com' });
+    });
+
+    it('leaves a missing link null on an unrelated update', async () => {
+      const body = validCase('keep-null', { projectLink: undefined });
+      await post(body).expect(201);
+
+      const res = await patch(body.slug, { sortOrder: 2 }).expect(200);
+
+      expect(res.body).toMatchObject({ projectLink: null, sortOrder: 2 });
+    });
+
     it('publishes a draft that has both languages', async () => {
       const body = validCase('publish', {
         translations: bothLanguages('publish'),
