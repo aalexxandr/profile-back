@@ -1,0 +1,45 @@
+[
+  {
+    "id": "alterNullability.dropNotNull.cases.project_link",
+    "label": "Drop NOT NULL on \"cases\".\"project_link\"",
+    "operationClass": "widening",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "project_link",
+        "table": "cases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"project_link\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "project_link"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop NOT NULL on \"project_link\"",
+        "sql": "ALTER TABLE \"public\".\"cases\" ALTER COLUMN \"project_link\" DROP NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"project_link\" is nullable",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"is_nullable\" = $4)) AS \"result\"",
+        "params": [
+          "public",
+          "cases",
+          "project_link",
+          "YES"
+        ]
+      }
+    ]
+  }
+]

@@ -8,7 +8,7 @@ type Achievement {
 
 model Case {
   slug             String @id
-  projectLink      String @map("project_link")
+  projectLink      String? @map("project_link")
   stack            String[]
   imageKey         String? @map("image_key")
   blurImage        String? @map("blur_image")

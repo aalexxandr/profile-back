@@ -59,7 +59,7 @@ export class CaseService {
     return this.prismaService.transaction(async (tx) => {
       const row = await tx.orm.public.Case.create({
         slug: caseData.slug,
-        projectLink: caseData.projectLink,
+        projectLink: caseData.projectLink ?? null,
         stack: caseData.stack,
         role: caseData.role,
         company: caseData.company ?? null,

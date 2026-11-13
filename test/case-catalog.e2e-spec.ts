@@ -113,6 +113,14 @@ describe('Case catalog (e2e)', () => {
       }
     });
 
+    it('returns projectLink null for a case without a link', async () => {
+      const slug = await seed('nolink', { projectLink: null });
+
+      const item = (await listOurs()).find((i) => i.slug === slug);
+
+      expect(item).toHaveProperty('projectLink', null);
+    });
+
     it('returns null picture fields for a case without a picture', async () => {
       const slug = await seed('nopic');
 
@@ -389,11 +397,12 @@ describe('Case catalog (e2e)', () => {
     });
 
     it('returns null, not nothing, for absent optional fields', async () => {
-      const slug = await seed('nulls');
+      const slug = await seed('nulls', { projectLink: null });
 
       const res = await request(server).get(`/cases/${slug}`).expect(200);
 
       expect(res.body).toMatchObject({
+        projectLink: null,
         company: null,
         teamSize: null,
         endedAt: null,
