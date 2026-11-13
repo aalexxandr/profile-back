@@ -42,7 +42,6 @@
     "@prisma/orm-postgres": "8.0.0-rc.18",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
-    "prisma": "8.0.0-rc.23",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "sharp": "^0.35.5"
@@ -73,6 +72,7 @@
     "jest": "^30.5.2",
     "lint-staged": "^17.6.0",
     "prettier": "^3.9.10",
+    "prisma": "8.0.0-rc.23",
     "secretlint": "^13.0.7",
     "source-map-support": "^0.5.21",
     "supertest": "^7.3.1",
