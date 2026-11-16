@@ -93,6 +93,8 @@ const CREATE_FIELDS = [
   'translations',
 ];
 
+const ROLES = ['FRONTEND', 'FULLSTACK', 'PRODUCT'];
+
 const CREATE_REQUIRED = ['role', 'slug', 'stack', 'startedAt', 'translations'];
 
 const TRANSLATION_FIELDS = [
@@ -263,11 +265,17 @@ describe('API documentation (e2e)', () => {
       expect(props.slug?.pattern).toBeTruthy();
       expect(props.projectLink?.maxLength).toBe(100);
       expect(props.teamSize?.minimum).toBe(1);
-      expect([...(props.role?.enum ?? [])].sort()).toEqual([
-        'FRONTEND',
-        'FULLSTACK',
-      ]);
+      expect([...(props.role?.enum ?? [])].sort()).toEqual(ROLES);
     });
+
+    it.each(['CreateCaseDto', 'UpdateCaseDto', 'CaseDetailDto', 'CaseFullDto'])(
+      '%s lists the same role enum',
+      (name) => {
+        const props = schema(name).properties ?? {};
+
+        expect([...(props.role?.enum ?? [])].sort()).toEqual(ROLES);
+      },
+    );
 
     it('UpdateCaseDto is partial and has no slug', () => {
       const names = propertyNames('UpdateCaseDto');

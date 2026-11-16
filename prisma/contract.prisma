@@ -45,6 +45,7 @@ model CaseTranslation {
 native_enum Role {
   FRONTEND = "FRONTEND"
   FULLSTACK = "FULLSTACK"
+  PRODUCT = "PRODUCT"
 }
 
 native_enum Locale {

@@ -39,7 +39,8 @@ export class CaseDetailDto extends CaseListItemDto {
   @ApiProperty({
     enum: Role,
     example: 'FRONTEND',
-    description: "The author's role on the project",
+    description:
+      "The author's role on the project: `FRONTEND`, `FULLSTACK` or `PRODUCT` (product engineer)",
   })
   role!: Role;
 

@@ -37,7 +37,7 @@ The schemas of the `POST /cases` and `PATCH /cases/{slug}` request bodies SHALL 
 
 - **WHEN** a client requests `GET /docs-json`
 - **THEN** `CreateCaseDto` has the properties `slug`, `projectLink`, `stack`, `role`, `company`, `teamSize`, `startedAt`, `endedAt`, `sortOrder`, `published` and `translations`
-- **AND** `slug`, `projectLink`, `stack`, `role`, `startedAt` and `translations` are required and the other properties are not
+- **AND** `slug`, `stack`, `role`, `startedAt` and `translations` are required and the other properties, including `projectLink`, are not
 - **AND** `CreateCaseDto` has no `name`, `category`, `shortDescription`, `description` or `achievements` property
 
 #### Scenario: Create translations require Russian
@@ -48,7 +48,12 @@ The schemas of the `POST /cases` and `PATCH /cases/{slug}` request bodies SHALL 
 #### Scenario: Constraints are visible
 
 - **WHEN** a client requests `GET /docs-json`
-- **THEN** `CreateCaseDto.slug` has a `maxLength` of 50 and a `pattern`, `CreateCaseDto.teamSize` has a `minimum` of 1, and `CreateCaseDto.role` lists `FRONTEND` and `FULLSTACK` as its `enum`
+- **THEN** `CreateCaseDto.slug` has a `maxLength` of 50 and a `pattern`, `CreateCaseDto.projectLink` has a `maxLength` of 100, `CreateCaseDto.teamSize` has a `minimum` of 1, and `CreateCaseDto.role` lists `FRONTEND`, `FULLSTACK` and `PRODUCT` as its `enum`
+
+#### Scenario: Role enum is the same in every schema
+
+- **WHEN** a client requests `GET /docs-json`
+- **THEN** the `role` property of `CreateCaseDto`, `UpdateCaseDto` and `CaseDetailDto` lists exactly `FRONTEND`, `FULLSTACK` and `PRODUCT` as its `enum`
 
 #### Scenario: Update body is partial and has no slug
 

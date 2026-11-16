@@ -75,7 +75,8 @@ export class CreateCaseDto {
   @ApiProperty({
     enum: Role,
     example: 'FRONTEND',
-    description: "The author's role on the project",
+    description:
+      "The author's role on the project: `FRONTEND`, `FULLSTACK` or `PRODUCT` (product engineer); any other value is rejected with 400",
   })
   @IsEnum(Role)
   role!: Role;
