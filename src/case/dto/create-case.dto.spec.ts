@@ -58,6 +58,8 @@ describe('CreateCaseDto', () => {
           translations: { ru: translation(), en: translation() },
         },
       ],
+      ['role FULLSTACK', { role: 'FULLSTACK' }],
+      ['role PRODUCT', { role: 'PRODUCT' }],
       ['slug of 50 characters', { slug: 'a'.repeat(50) }],
       [
         '30 stack entries',
@@ -94,6 +96,10 @@ describe('CreateCaseDto', () => {
       ['non-http link', { projectLink: 'ftp://example.com' }],
       ['empty link', { projectLink: '' }],
       ['unknown field', { foo: 1 }],
+      ['unknown role', { role: 'BACKEND' }],
+      ['role in lowercase', { role: 'product' }],
+      ['role as a display label', { role: 'Product Engineer' }],
+      ['missing role', { role: undefined }],
     ])('%s', async (_name, overrides) => {
       expect(await errorsFor(validCase(overrides))).not.toHaveLength(0);
     });

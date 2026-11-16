@@ -324,6 +324,56 @@ describe('Case management (e2e)', () => {
     });
   });
 
+  describe('role', () => {
+    it.each(['FRONTEND', 'FULLSTACK', 'PRODUCT'])(
+      'creates a case with role %s',
+      async (role) => {
+        const res = await post(
+          validCase(`role-${role.toLowerCase()}`, { role }),
+        ).expect(201);
+
+        expect(res.body).toMatchObject({ role });
+      },
+    );
+
+    it('changes the role to PRODUCT and keeps the other fields', async () => {
+      const body = validCase('role-patch');
+      await post(body).expect(201);
+
+      const res = await patch(body.slug, { role: 'PRODUCT' }).expect(200);
+
+      expect(res.body).toMatchObject({
+        role: 'PRODUCT',
+        slug: body.slug,
+        stack: ['React', 'TypeScript'],
+        projectLink: 'https://example.com',
+      });
+    });
+
+    it.each(['BACKEND', 'product', 'Product Engineer'])(
+      'responds 400 and stores nothing for role %s on create',
+      async (role) => {
+        const body = validCase('role-bad', { role });
+
+        await post(body).expect(400);
+
+        expect(
+          await prisma.cases.first({ slug: String(body.slug) }),
+        ).toBeFalsy();
+      },
+    );
+
+    it('responds 400 and keeps the stored role for an unknown role on update', async () => {
+      const body = validCase('role-bad-patch', { role: 'PRODUCT' });
+      await post(body).expect(201);
+
+      await patch(body.slug, { role: 'BACKEND' }).expect(400);
+
+      const stored = await prisma.cases.first({ slug: String(body.slug) });
+      expect(stored).toMatchObject({ role: 'PRODUCT' });
+    });
+  });
+
   describe('PATCH /cases/:slug', () => {
     it('adds a link to a case that has none', async () => {
       const body = validCase('add-link', { projectLink: undefined });

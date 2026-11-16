@@ -396,6 +396,14 @@ describe('Case catalog (e2e)', () => {
       });
     });
 
+    it('returns the PRODUCT role of a published case', async () => {
+      const slug = await seed('role-product', { role: 'PRODUCT' });
+
+      const res = await request(server).get(`/cases/${slug}`).expect(200);
+
+      expect(res.body).toMatchObject({ role: 'PRODUCT' });
+    });
+
     it('returns null, not nothing, for absent optional fields', async () => {
       const slug = await seed('nulls', { projectLink: null });
 
