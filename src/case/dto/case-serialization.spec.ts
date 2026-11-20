@@ -30,6 +30,14 @@ const serialize = async (handler: Handler, body: unknown): Promise<unknown> => {
 
 const sortedKeys = (value: unknown) => Object.keys(value as object).sort();
 
+// Background values a stale source object might still carry; none may reach a client.
+const BACKGROUND = {
+  backgroundImage: 'https://cdn.test/cases/spectre/background/cd34.webp',
+  backgroundImageKey: 'cases/spectre/background/cd34.webp',
+  backgroundBlurImage: 'data:image/webp;base64,BBBB',
+};
+const BACKGROUND_FIELDS = Object.keys(BACKGROUND);
+
 const LIST_ITEM_KEYS = [
   'blurImage',
   'category',
@@ -44,8 +52,6 @@ const LIST_ITEM_KEYS = [
 
 const DETAIL_KEYS = [
   'achievements',
-  'backgroundBlurImage',
-  'backgroundImage',
   'blurImage',
   'category',
   'company',
@@ -64,8 +70,6 @@ const DETAIL_KEYS = [
 ];
 
 const ADMIN_KEYS = [
-  'backgroundBlurImage',
-  'backgroundImage',
   'blurImage',
   'company',
   'endedAt',
@@ -139,17 +143,12 @@ describe('case response serialization', () => {
 
     it('does not send the background, the list stays compact', async () => {
       const items = (await serialize('findAll', [
-        caseView({
-          backgroundImage:
-            'https://cdn.test/cases/spectre/background/cd34.webp',
-          backgroundImageKey: 'cases/spectre/background/cd34.webp',
-          backgroundBlurImage: 'data:image/webp;base64,BBBB',
-        }),
+        { ...caseView(), ...BACKGROUND },
       ])) as unknown[];
 
-      expect(items[0]).not.toHaveProperty('backgroundImage');
-      expect(items[0]).not.toHaveProperty('backgroundBlurImage');
-      expect(items[0]).not.toHaveProperty('backgroundImageKey');
+      for (const field of BACKGROUND_FIELDS) {
+        expect(items[0]).not.toHaveProperty(field);
+      }
     });
 
     it('serializes an empty list as an empty list', async () => {
@@ -176,15 +175,11 @@ describe('case response serialization', () => {
     it('does not expose internal columns', async () => {
       const detail = await serialize(
         handler,
-        caseView({
-          imageKey: 'cases/spectre/ab12.webp',
-          backgroundImageKey: 'cases/spectre/background/cd34.webp',
-        }),
+        caseView({ imageKey: 'cases/spectre/ab12.webp' }),
       );
 
       for (const key of [
         'imageKey',
-        'backgroundImageKey',
         'published',
         'sortOrder',
         'createdAt',
@@ -206,25 +201,16 @@ describe('case response serialization', () => {
         endedAt: null,
         image: null,
         blurImage: null,
-        backgroundImage: null,
-        backgroundBlurImage: null,
       });
     });
 
-    it('sends the background URL and its blur placeholder', async () => {
-      const detail = await serialize(
-        handler,
-        caseView({
-          backgroundImage:
-            'https://cdn.test/cases/spectre/background/cd34.webp',
-          backgroundBlurImage: 'data:image/webp;base64,BBBB',
-        }),
-      );
+    // case-catalog: "Detail of a case with a background"
+    it('never sends background fields', async () => {
+      const detail = await serialize(handler, { ...caseView(), ...BACKGROUND });
 
-      expect(detail).toMatchObject({
-        backgroundImage: 'https://cdn.test/cases/spectre/background/cd34.webp',
-        backgroundBlurImage: 'data:image/webp;base64,BBBB',
-      });
+      for (const field of BACKGROUND_FIELDS) {
+        expect(detail).not.toHaveProperty(field);
+      }
     });
 
     it('sends the picture URL and the blur placeholder', async () => {
@@ -284,90 +270,100 @@ describe('case response serialization', () => {
     });
   });
 
-  describe.each([
-    'createCase',
-    'updateCase',
-    'setImage',
-    'setBackground',
-  ] as const)('full view (%s)', (handler) => {
-    it('exposes the shared fields and all translations, without locale', async () => {
-      const view = await serialize(handler, caseAdminView());
+  describe.each(['createCase', 'updateCase', 'setImage'] as const)(
+    'full view (%s)',
+    (handler) => {
+      it('exposes the shared fields and all translations, without locale', async () => {
+        const view = await serialize(handler, caseAdminView());
 
-      expect(sortedKeys(view)).toEqual(ADMIN_KEYS);
-      expect(view).toMatchObject({
-        slug: 'spectre',
-        role: 'FRONTEND',
-        company: 'Acme',
-        teamSize: 5,
-        startedAt: '2024-01-01',
-        endedAt: '2024-06-01',
-        sortOrder: 2,
-        published: true,
+        expect(sortedKeys(view)).toEqual(ADMIN_KEYS);
+        expect(view).toMatchObject({
+          slug: 'spectre',
+          role: 'FRONTEND',
+          company: 'Acme',
+          teamSize: 5,
+          startedAt: '2024-01-01',
+          endedAt: '2024-06-01',
+          sortOrder: 2,
+          published: true,
+        });
+        expect(view).not.toHaveProperty('locale');
+        expect(view).not.toHaveProperty('name');
       });
-      expect(view).not.toHaveProperty('locale');
-      expect(view).not.toHaveProperty('name');
-    });
 
-    it('exposes exactly the five text fields of each translation', async () => {
-      const view = (await serialize(handler, caseAdminView())) as {
-        translations: { ru: unknown; en: unknown };
-      };
+      // case-management: "Return all translations in the full view"
+      it('never sends background fields', async () => {
+        const view = await serialize(handler, {
+          ...caseAdminView(),
+          ...BACKGROUND,
+        });
 
-      expect(sortedKeys(view.translations)).toEqual(['en', 'ru']);
-      expect(sortedKeys(view.translations.ru)).toEqual(TRANSLATION_KEYS);
-      expect(sortedKeys(view.translations.en)).toEqual(TRANSLATION_KEYS);
-      expect(view.translations.en).toMatchObject({ name: 'Spectre' });
-    });
+        for (const field of BACKGROUND_FIELDS) {
+          expect(view).not.toHaveProperty(field);
+        }
+      });
 
-    it('sends null for a language that does not exist yet', async () => {
-      const view = (await serialize(
-        handler,
-        caseAdminView({
-          translations: { ru: caseAdminView().translations.ru, en: null },
-        }),
-      )) as { translations: { ru: unknown; en: unknown } };
+      it('exposes exactly the five text fields of each translation', async () => {
+        const view = (await serialize(handler, caseAdminView())) as {
+          translations: { ru: unknown; en: unknown };
+        };
 
-      expect(view.translations.en).toBeNull();
-      expect(sortedKeys(view.translations.ru)).toEqual(TRANSLATION_KEYS);
-    });
+        expect(sortedKeys(view.translations)).toEqual(['en', 'ru']);
+        expect(sortedKeys(view.translations.ru)).toEqual(TRANSLATION_KEYS);
+        expect(sortedKeys(view.translations.en)).toEqual(TRANSLATION_KEYS);
+        expect(view.translations.en).toMatchObject({ name: 'Spectre' });
+      });
 
-    it('does not expose the storage key and reduces achievements', async () => {
-      const base = caseAdminView();
-      const view = (await serialize(handler, {
-        ...base,
-        imageKey: 'cases/spectre/ab12.webp',
-        translations: {
-          ru: {
-            ...base.translations.ru,
-            achievements: [
-              { title: 'a', description: 'b', metric: 'c', internal: 'x' },
-            ],
+      it('sends null for a language that does not exist yet', async () => {
+        const view = (await serialize(
+          handler,
+          caseAdminView({
+            translations: { ru: caseAdminView().translations.ru, en: null },
+          }),
+        )) as { translations: { ru: unknown; en: unknown } };
+
+        expect(view.translations.en).toBeNull();
+        expect(sortedKeys(view.translations.ru)).toEqual(TRANSLATION_KEYS);
+      });
+
+      it('does not expose the storage key and reduces achievements', async () => {
+        const base = caseAdminView();
+        const view = (await serialize(handler, {
+          ...base,
+          imageKey: 'cases/spectre/ab12.webp',
+          translations: {
+            ru: {
+              ...base.translations.ru,
+              achievements: [
+                { title: 'a', description: 'b', metric: 'c', internal: 'x' },
+              ],
+            },
+            en: base.translations.en,
           },
-          en: base.translations.en,
-        },
-      })) as {
-        translations: { ru: { achievements: unknown[] } };
-      };
+        })) as {
+          translations: { ru: { achievements: unknown[] } };
+        };
 
-      expect(view).not.toHaveProperty('imageKey');
-      expect(view.translations.ru.achievements).toEqual([
-        { title: 'a', description: 'b', metric: 'c' },
-      ]);
-    });
+        expect(view).not.toHaveProperty('imageKey');
+        expect(view.translations.ru.achievements).toEqual([
+          { title: 'a', description: 'b', metric: 'c' },
+        ]);
+      });
 
-    it('sends the picture URL and the blur placeholder', async () => {
-      const view = await serialize(
-        handler,
-        caseAdminView({
+      it('sends the picture URL and the blur placeholder', async () => {
+        const view = await serialize(
+          handler,
+          caseAdminView({
+            image: 'https://cdn.test/cases/spectre/ab12.webp',
+            blurImage: 'data:image/webp;base64,AAAA',
+          }),
+        );
+
+        expect(view).toMatchObject({
           image: 'https://cdn.test/cases/spectre/ab12.webp',
           blurImage: 'data:image/webp;base64,AAAA',
-        }),
-      );
-
-      expect(view).toMatchObject({
-        image: 'https://cdn.test/cases/spectre/ab12.webp',
-        blurImage: 'data:image/webp;base64,AAAA',
+        });
       });
-    });
-  });
+    },
+  );
 });

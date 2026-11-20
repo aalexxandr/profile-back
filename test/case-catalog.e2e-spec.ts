@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './helpers/create-test-app';
+import { InMemoryStorage } from './helpers/in-memory-storage';
 import { uniqueId } from './helpers/unique-id';
 
 type Body = Record<string, unknown>;
@@ -11,12 +12,17 @@ type Body = Record<string, unknown>;
 // the fake storage that `createTestApp` plugs in builds URLs on this base
 const STORAGE_URL = 'https://storage.test';
 const PIC_KEY = 'cases/example/ab12cd34ef56ab78.webp';
-const BG_KEY = 'cases/example/background/cd34ef56ab78ab12.webp';
+const BACKGROUND_FIELDS = [
+  'backgroundImage',
+  'backgroundBlurImage',
+  'backgroundImageKey',
+];
 
 describe('Case catalog (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let server: Parameters<typeof request>[0];
+  const storage = new InMemoryStorage(STORAGE_URL);
   const tag = uniqueId('cat', 16);
   const created: string[] = [];
 
@@ -69,7 +75,7 @@ describe('Case catalog (e2e)', () => {
   };
 
   beforeAll(async () => {
-    app = await createTestApp({ imports: [AppModule] });
+    app = await createTestApp({ imports: [AppModule] }, storage);
     server = app.getHttpServer() as typeof server;
     prisma = app.get(PrismaService);
   });
@@ -144,18 +150,16 @@ describe('Case catalog (e2e)', () => {
       expect(item).not.toHaveProperty('imageKey');
     });
 
-    it('does not put the background into the list', async () => {
-      const slug = await seed('list-bg', {
-        backgroundImageKey: BG_KEY,
-        backgroundBlurImage: 'data:image/webp;base64,BBBB',
-      });
+    // case-catalog: "List has no background fields"
+    it('does not put background fields into the list', async () => {
+      const slug = await seed('list-bg');
 
       const item = (await listOurs()).find((i) => i.slug === slug);
 
       expect(item).toBeDefined();
-      expect(item).not.toHaveProperty('backgroundImage');
-      expect(item).not.toHaveProperty('backgroundBlurImage');
-      expect(item).not.toHaveProperty('backgroundImageKey');
+      for (const field of BACKGROUND_FIELDS) {
+        expect(item).not.toHaveProperty(field);
+      }
     });
 
     it('puts a lower sortOrder first', async () => {
@@ -367,8 +371,6 @@ describe('Case catalog (e2e)', () => {
 
       expect(Object.keys(body).sort()).toEqual([
         'achievements',
-        'backgroundBlurImage',
-        'backgroundImage',
         'blurImage',
         'category',
         'company',
@@ -416,24 +418,23 @@ describe('Case catalog (e2e)', () => {
         endedAt: null,
         image: null,
         blurImage: null,
-        backgroundImage: null,
-        backgroundBlurImage: null,
       });
     });
 
-    it('returns the absolute background URL and its placeholder, never the key', async () => {
-      const slug = await seed('detail-bg', {
-        backgroundImageKey: BG_KEY,
-        backgroundBlurImage: 'data:image/webp;base64,BBBB',
-      });
+    // case-catalog: "Detail of a case with a background"
+    it('sends no background fields, even with a left-over background object', async () => {
+      const slug = await seed('detail-bg');
+      await storage.put(
+        `cases/${slug}/background/cd34ef56ab78ab12.webp`,
+        Buffer.from('old background'),
+        'image/webp',
+      );
 
       const res = await request(server).get(`/cases/${slug}`).expect(200);
 
-      expect(res.body).toMatchObject({
-        backgroundImage: `${STORAGE_URL}/${BG_KEY}`,
-        backgroundBlurImage: 'data:image/webp;base64,BBBB',
-      });
-      expect(res.body).not.toHaveProperty('backgroundImageKey');
+      for (const field of BACKGROUND_FIELDS) {
+        expect(res.body).not.toHaveProperty(field);
+      }
     });
 
     it('returns the absolute picture URL and the placeholder of a case with a picture', async () => {

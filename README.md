@@ -67,17 +67,15 @@ API: `http://localhost:3000/cases`, документация Swagger: `http://lo
 
 ### API кейсов
 
-| Метод и путь                     | Что делает                                                                                                                                                                                                                      |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /cases`                     | Список опубликованных кейсов в сокращённом виде (`slug`, `locale`, `name`, `category`, `stack`, `shortDescription`, `image`, `blurImage`), порядок: `sortOrder`, затем новые первыми; язык текста задаёт `?lang=ru\|en`         |
-| `GET /cases/:slug`               | Полный кейс (описание, роль, компания, команда, даты `startedAt` и `endedAt`, достижения, `locale`, `image`, `blurImage`, `backgroundImage`, `backgroundBlurImage`); `?lang=ru\|en`; `404` для неизвестного и неопубликованного |
-| `POST /cases`                    | Создать кейс с текстом в `translations: { ru, en }` (по умолчанию черновик: `published = false`); `409` при занятом `slug`; ответ содержит тексты на обоих языках                                                               |
-| `PATCH /cases/:slug`             | Частичное обновление; в `translations` присылайте только меняемые языки и поля; `slug` и картинку изменить нельзя                                                                                                               |
-| `DELETE /cases/:slug`            | Удалить кейс вместе с переводами и картинкой, `204`                                                                                                                                                                             |
-| `PUT /cases/:slug/image`         | Загрузить или заменить картинку кейса (multipart, поле `file`); `400` не картинка, `404` нет кейса, `413` больше 10 МБ                                                                                                          |
-| `DELETE /cases/:slug/image`      | Убрать картинку кейса, `204` (повтор тоже `204`)                                                                                                                                                                                |
-| `PUT /cases/:slug/background`    | Загрузить или заменить фон кейса (multipart, поле `file`); правила и ошибки те же, что у картинки; картинка кейса не меняется                                                                                                   |
-| `DELETE /cases/:slug/background` | Убрать фон кейса, `204` (повтор тоже `204`)                                                                                                                                                                                     |
+| Метод и путь                | Что делает                                                                                                                                                                                                              |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /cases`                | Список опубликованных кейсов в сокращённом виде (`slug`, `locale`, `name`, `category`, `stack`, `shortDescription`, `image`, `blurImage`), порядок: `sortOrder`, затем новые первыми; язык текста задаёт `?lang=ru\|en` |
+| `GET /cases/:slug`          | Полный кейс (описание, роль, компания, команда, даты `startedAt` и `endedAt`, достижения, `locale`, `image`, `blurImage`); `?lang=ru\|en`; `404` для неизвестного и неопубликованного                                   |
+| `POST /cases`               | Создать кейс с текстом в `translations: { ru, en }` (по умолчанию черновик: `published = false`); `409` при занятом `slug`; ответ содержит тексты на обоих языках                                                       |
+| `PATCH /cases/:slug`        | Частичное обновление; в `translations` присылайте только меняемые языки и поля; `slug` и картинку изменить нельзя                                                                                                       |
+| `DELETE /cases/:slug`       | Удалить кейс вместе с переводами и картинкой, `204`                                                                                                                                                                     |
+| `PUT /cases/:slug/image`    | Загрузить или заменить картинку кейса (multipart, поле `file`); `400` не картинка, `404` нет кейса, `413` больше 10 МБ                                                                                                  |
+| `DELETE /cases/:slug/image` | Убрать картинку кейса, `204` (повтор тоже `204`)                                                                                                                                                                        |
 
 ### Языки (ru и en)
 
@@ -157,24 +155,28 @@ curl -X DELETE http://localhost:3000/cases/spectre/image \
 - `blurImage`: строка `data:image/webp;base64,...`, её можно сразу подставить как
   заглушку (`<img src>`, `blurDataURL` в `next/image`), пока грузится `image`.
 
-### Фон кейса
+### Фон кейса удалён (одноразовые шаги)
 
-У кейса есть вторая, независимая картинка: фон. Он загружается теми же правилами
-(JPEG, PNG, WebP, до 10 МБ, перекодирование в WebP до 1920 px, blur создаётся сам),
-но отдельными маршрутами, а файл лежит в S3 как `cases/<slug>/background/<хеш>.webp`:
+Раньше у кейса был второй рисунок, фон (`backgroundImage`, `backgroundBlurImage`,
+маршруты `/cases/:slug/background`). Он убран из API, а миграция
+`drop_case_background` удаляет колонки `background_image_key` и
+`background_blur_image` вместе с данными. Prisma при первом запросе сверяет базу
+с контрактом, поэтому миграцию применяют непосредственно перед запуском новой
+сборки:
 
 ```bash
-curl -X PUT http://localhost:3000/cases/spectre/background \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -F "file=@background.jpg"
-curl -X DELETE http://localhost:3000/cases/spectre/background \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
+pnpm run db:migrate
+pnpm run db:verify
 ```
 
-В ответах API `backgroundImage` (URL) и `backgroundBlurImage` (`data:image/webp;base64,...`),
-оба `null`, пока фона нет. Они есть в `GET /cases/:slug` и в ответах админских
-операций, а в списке `GET /cases` их нет. В БД фон добавляет две колонки
-(`background_image_key`, `background_blur_image`), поэтому после обновления
-выполните `pnpm run db:migrate`. Удаление кейса удаляет и картинку, и фон из бакета.
+Файлы фона в бакете код не трогает. Удалите их один раз вручную: в панели Selectel
+все объекты с `/background/` в пути (`cases/<slug>/background/<хеш>.webp`) или
+через любой S3-клиент, например:
+
+```bash
+aws s3 rm "s3://$S3_BUCKET/cases/" --recursive --endpoint-url "$S3_ENDPOINT" \
+  --exclude "*" --include "*/background/*"
+```
 
 ### Тайм-ауты
 
@@ -183,7 +185,7 @@ curl -X DELETE http://localhost:3000/cases/spectre/background \
 
 - любой запрос к API, который не обработан за 30 секунд, получает `503 Request timed out`;
 - каждый вызов внешнего сервиса (сейчас это S3) идёт через `TimeoutService`. Если
-  хранилище не ответило за 10 секунд, вызов отменяется, а загрузка картинки или фона
+  хранилище не ответило за 10 секунд, вызов отменяется, а загрузка картинки
   отвечает `504 An external service did not respond in time`. Кейс при этом не меняется.
 
 Новый внешний клиент подключается так же: оборачивает вызов в `TimeoutService.run(...)`
