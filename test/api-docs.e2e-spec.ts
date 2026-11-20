@@ -44,7 +44,10 @@ interface Operation {
   requestBody?: { content?: Record<string, { schema?: Schema }> };
   responses: Record<
     string,
-    { content?: Record<string, { schema?: { $ref?: string } }> }
+    {
+      description?: string;
+      content?: Record<string, { schema?: { $ref?: string } }>;
+    }
   >;
 }
 
@@ -64,15 +67,19 @@ interface OpenApiDocument {
 
 // [method, path, documented error statuses]
 const OPERATIONS: Array<[string, string, string[]]> = [
-  ['post', '/cases', ['400', '401', '409']],
-  ['get', '/cases', []],
-  ['get', '/cases/{slug}', ['404']],
-  ['patch', '/cases/{slug}', ['400', '401', '404']],
-  ['delete', '/cases/{slug}', ['401', '404']],
-  ['put', '/cases/{slug}/image', ['400', '401', '404', '413']],
-  ['delete', '/cases/{slug}/image', ['401', '404']],
-  ['put', '/cases/{slug}/background', ['400', '401', '404', '413']],
-  ['delete', '/cases/{slug}/background', ['401', '404']],
+  ['post', '/cases', ['400', '401', '409', '503']],
+  ['get', '/cases', ['503']],
+  ['get', '/cases/{slug}', ['404', '503']],
+  ['patch', '/cases/{slug}', ['400', '401', '404', '503']],
+  ['delete', '/cases/{slug}', ['401', '404', '503']],
+  ['put', '/cases/{slug}/image', ['400', '401', '404', '413', '503', '504']],
+  ['delete', '/cases/{slug}/image', ['401', '404', '503']],
+  [
+    'put',
+    '/cases/{slug}/background',
+    ['400', '401', '404', '413', '503', '504'],
+  ],
+  ['delete', '/cases/{slug}/background', ['401', '404', '503']],
 ];
 
 // operations that need the admin token, and the two that stay public
@@ -617,6 +624,22 @@ describe('API documentation (e2e)', () => {
         }
       },
     );
+
+    // api-documentation: "Timeout statuses are described"
+    it.each(OPERATIONS)('%s %s describes 503', (method, path) => {
+      expect(operation(method, path).responses['503']?.description).toMatch(
+        /\S/,
+      );
+    });
+
+    it.each([
+      ['put', '/cases/{slug}/image'],
+      ['put', '/cases/{slug}/background'],
+    ])('%s %s describes 504', (method, path) => {
+      expect(operation(method, path).responses['504']?.description).toMatch(
+        /\S/,
+      );
+    });
 
     it('ErrorResponseDto matches the real error body', () => {
       expect(propertyNames('ErrorResponseDto')).toEqual([

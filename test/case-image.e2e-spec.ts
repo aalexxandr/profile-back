@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { GatewayTimeoutException, INestApplication } from '@nestjs/common';
 import sharp from 'sharp';
 import request from 'supertest';
 
@@ -382,6 +382,33 @@ describe('Case image (e2e)', () => {
           blurImage: 'data:image/webp;base64,AAAA',
         })
         .expect(400);
+    });
+  });
+
+  // case-image: "Storage does not answer in time"
+  describe('storage timeout', () => {
+    it('answers 504 and keeps the previous picture', async () => {
+      const slug = await seed('timeout');
+      const first = await upload(slug, await solidJpeg(100, 100)).expect(200);
+      storage.failNextPut(
+        new GatewayTimeoutException(
+          'An external service did not respond in time',
+        ),
+      );
+
+      const res = await upload(
+        slug,
+        await solidJpeg(120, 90, '#cc3333'),
+      ).expect(504);
+
+      expect(res.body).toMatchObject({
+        status: 504,
+        message: 'An external service did not respond in time',
+        path: `/cases/${slug}/image`,
+      });
+      const row = await prisma.cases.first({ slug });
+      expect(row?.imageKey).toBe(keyOf(first.body as Body));
+      expect(row?.blurImage).toBe((first.body as Body).blurImage);
     });
   });
 });

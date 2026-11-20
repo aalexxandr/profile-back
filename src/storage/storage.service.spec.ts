@@ -3,8 +3,11 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { GatewayTimeoutException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { STORAGE_TIMEOUT_MS } from '../timeout/timeout.constants';
+import { TimeoutService } from '../timeout/timeout.service';
 import { StorageService } from './storage.service';
 
 jest.mock('@aws-sdk/client-s3', () => ({
@@ -27,7 +30,9 @@ const ENV: Record<string, string> = {
 };
 
 function createService(env: Record<string, string | undefined> = ENV) {
-  const send = jest.fn<Promise<unknown>, [unknown]>().mockResolvedValue({});
+  const send = jest
+    .fn<Promise<unknown>, [unknown, { abortSignal?: AbortSignal }?]>()
+    .mockResolvedValue({});
   S3ClientMock.mockImplementation(
     () => ({ send }) as unknown as InstanceType<typeof S3Client>,
   );
@@ -36,10 +41,13 @@ function createService(env: Record<string, string | undefined> = ENV) {
     if (value === undefined) throw new Error(`Missing ${key}`);
     return value;
   });
-  const service = new StorageService({
-    getOrThrow,
-  } as unknown as ConfigService);
-  return { service, send };
+  const timeoutService = new TimeoutService();
+  const run = jest.spyOn(timeoutService, 'run');
+  const service = new StorageService(
+    { getOrThrow } as unknown as ConfigService,
+    timeoutService,
+  );
+  return { service, send, run };
 }
 
 describe('StorageService', () => {
@@ -127,6 +135,46 @@ describe('StorageService', () => {
         Key: 'cases/a/b.webp',
       });
       expect(send).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('time limit', () => {
+    it.each([
+      ['put', (s: StorageService) => s.put('k', Buffer.alloc(1), 'image/webp')],
+      ['delete', (s: StorageService) => s.delete('k')],
+    ])(
+      '%s runs through TimeoutService with the storage limit and passes its abort signal',
+      async (_name, call) => {
+        const { service, send, run } = createService();
+
+        await call(service);
+
+        expect(run).toHaveBeenCalledWith(
+          expect.any(Function),
+          STORAGE_TIMEOUT_MS,
+          'storage',
+        );
+        const options = send.mock.calls[0]?.[1];
+        expect(options?.abortSignal).toBeInstanceOf(AbortSignal);
+      },
+    );
+
+    it('rejects a stalled upload with 504 and aborts the request', async () => {
+      jest.useFakeTimers();
+      jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      try {
+        const { service, send } = createService();
+        send.mockReturnValue(new Promise(() => undefined));
+
+        const result = service.put('k', Buffer.alloc(1), 'image/webp');
+        jest.advanceTimersByTime(STORAGE_TIMEOUT_MS);
+
+        await expect(result).rejects.toBeInstanceOf(GatewayTimeoutException);
+        expect(send.mock.calls[0]?.[1]?.abortSignal?.aborted).toBe(true);
+      } finally {
+        jest.useRealTimers();
+        jest.restoreAllMocks();
+      }
     });
   });
 });

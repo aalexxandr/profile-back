@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { GatewayTimeoutException, INestApplication } from '@nestjs/common';
 import sharp from 'sharp';
 import request from 'supertest';
 
@@ -400,5 +400,36 @@ describe('Case background (e2e)', () => {
           .expect(400);
       },
     );
+  });
+
+  // case-background-image: "Storage does not answer in time"
+  describe('storage timeout', () => {
+    it('answers 504 and keeps the previous background', async () => {
+      const slug = await seed('timeout');
+      const first = await uploadBackground(
+        slug,
+        await solidJpeg(100, 100),
+      ).expect(200);
+      storage.failNextPut(
+        new GatewayTimeoutException(
+          'An external service did not respond in time',
+        ),
+      );
+
+      const res = await uploadBackground(
+        slug,
+        await solidJpeg(120, 90, '#cc3333'),
+      ).expect(504);
+
+      expect(res.body).toMatchObject({
+        status: 504,
+        message: 'An external service did not respond in time',
+        path: `/cases/${slug}/background`,
+      });
+      const firstBody = first.body as Body;
+      const row = await prisma.cases.first({ slug });
+      expect(row?.backgroundImageKey).toBe(keyOf(firstBody.backgroundImage));
+      expect(row?.backgroundBlurImage).toBe(firstBody.backgroundBlurImage);
+    });
   });
 });
