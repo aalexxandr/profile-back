@@ -8,7 +8,7 @@
 
 - [x] 2.1 Red: in `src/case/case.service.spec.ts` add a test that `createCase` without `projectLink` stores `projectLink: null`
 - [x] 2.2 Green: in `prisma/contract.prisma` change `projectLink` to `String?`; in `src/case/case.service.ts` store `caseData.projectLink ?? null`; update `src/case/case.fixtures.ts` only if its types require it
-- [ ] 2.3 Run `pnpm run db:generate` to refresh the contract, then `pnpm run db:migration:plan --name make-project-link-optional` and review the generated migration (drops NOT NULL on `cases.project_link`, nothing else); ask the user to run `db:migrate` and `db:verify` (denied for Claude)
+- [x] 2.3 Run `pnpm run db:generate` to refresh the contract, then `pnpm run db:migration:plan --name make-project-link-optional` and review the generated migration (drops NOT NULL on `cases.project_link`, nothing else); ask the user to run `db:migrate` and `db:verify` (denied for Claude)
 
 ## 3. Responses
 
@@ -18,9 +18,9 @@
 
 ## 4. HTTP behavior (e2e, real local DB)
 
-- [ ] 4.1 Red: in `test/case-management.e2e-spec.ts` add scenarios "Create with required fields only" (no `projectLink`, response `projectLink: null`), "Create a published case without a link", "Empty link" (`400`), "Add a link to a case without one" and "Link is untouched by an unrelated update"; run them red
-- [ ] 4.2 Green: confirm 1.2 and 2.2 make them pass (the DB must already have the migration from 2.3); fix the code if not
-- [ ] 4.3 Red then green: in `test/case-catalog.e2e-spec.ts` add "Case without a link" for the list and extend "Optional fields are null, not omitted" for the detail with `projectLink`; update existing e2e files that build a case (`case-image`, `case-background`) only if the types require it
+- [x] 4.1 Red: in `test/case-management.e2e-spec.ts` add scenarios "Create with required fields only" (no `projectLink`, response `projectLink: null`), "Create a published case without a link", "Empty link" (`400`), "Add a link to a case without one" and "Link is untouched by an unrelated update"; run them red
+- [x] 4.2 Green: confirm 1.2 and 2.2 make them pass (the DB must already have the migration from 2.3); fix the code if not
+- [x] 4.3 Red then green: in `test/case-catalog.e2e-spec.ts` add "Case without a link" for the list and extend "Optional fields are null, not omitted" for the detail with `projectLink`; update existing e2e files that build a case (`case-image`) only if the types require it
 
 ## 5. Swagger
 
@@ -30,4 +30,4 @@
 ## 6. Docs and final check
 
 - [x] 6.1 Search `README.md` and `CLAUDE.md` for statements that `projectLink` is required and update them in the same change (skip with a note if there are none) (none found, nothing to update)
-- [ ] 6.2 Run `pnpm run check` (typecheck, lint, unit tests) and `pnpm run test:e2e --runInBand` against the migrated local DB; everything green
+- [x] 6.2 Run `pnpm run check` (typecheck, lint, unit tests) and `pnpm run test:e2e --runInBand` against the migrated local DB; everything green
