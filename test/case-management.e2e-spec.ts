@@ -1,10 +1,12 @@
 import { INestApplication } from '@nestjs/common';
+import sharp from 'sharp';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { adminAuth } from './helpers/admin-auth';
 import { createTestApp } from './helpers/create-test-app';
+import { InMemoryStorage } from './helpers/in-memory-storage';
 import { uniqueId } from './helpers/unique-id';
 
 type Body = Record<string, unknown>;
@@ -14,6 +16,7 @@ describe('Case management (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let server: Parameters<typeof request>[0];
+  const storage = new InMemoryStorage();
   const tag = uniqueId('mgmt', 16);
   const created: string[] = [];
 
@@ -67,7 +70,7 @@ describe('Case management (e2e)', () => {
     prisma.caseTranslations.where({ caseSlug: String(slug) }).all();
 
   beforeAll(async () => {
-    app = await createTestApp({ imports: [AppModule] });
+    app = await createTestApp({ imports: [AppModule] }, storage);
     server = app.getHttpServer() as typeof server;
     prisma = app.get(PrismaService);
   });
@@ -81,16 +84,28 @@ describe('Case management (e2e)', () => {
   });
 
   describe('full view', () => {
-    it('creates a case without a picture or a background', async () => {
+    // case-management: "Draft with Russian only" (no background fields)
+    it('creates a case without a picture and without background fields', async () => {
       const res = await post(validCase('no-bg')).expect(201);
 
-      expect(res.body).toMatchObject({
-        image: null,
-        blurImage: null,
-        backgroundImage: null,
-        backgroundBlurImage: null,
-      });
-      expect(res.body).not.toHaveProperty('backgroundImageKey');
+      expect(res.body).toMatchObject({ image: null, blurImage: null });
+      for (const field of [
+        'backgroundImage',
+        'backgroundBlurImage',
+        'backgroundImageKey',
+      ]) {
+        expect(res.body).not.toHaveProperty(field);
+      }
+    });
+
+    // case-management: "Background fields are not writable through JSON"
+    it('rejects a background field in PATCH', async () => {
+      const body = validCase('bg-json');
+      await post(body).expect(201);
+
+      await patch(body.slug, {
+        backgroundImage: 'https://example.com/x.webp',
+      }).expect(400);
     });
   });
 
@@ -608,6 +623,51 @@ describe('Case management (e2e)', () => {
         .delete(`/cases/${slugOf('missing')}`)
         .set(...adminAuth())
         .expect(404);
+    });
+  });
+
+  describe('background routes', () => {
+    const jpeg = () =>
+      sharp({
+        create: { width: 40, height: 30, channels: 3, background: '#3366cc' },
+      })
+        .jpeg()
+        .toBuffer();
+
+    it('answers 404 to a background upload and stores nothing', async () => {
+      const body = validCase('bg-put');
+      await post(body).expect(201);
+      const keysBefore = storage.keys();
+
+      await request(server)
+        .put(`/cases/${String(body.slug)}/background`)
+        .set(...adminAuth())
+        .attach('file', await jpeg(), 'bg.jpg')
+        .expect(404);
+
+      expect(storage.keys()).toEqual(keysBefore);
+    });
+
+    it('answers 404 to a background removal and keeps the picture', async () => {
+      const body = validCase('bg-delete');
+      await post(body).expect(201);
+      const withImage = await request(server)
+        .put(`/cases/${String(body.slug)}/image`)
+        .set(...adminAuth())
+        .attach('file', await jpeg(), 'pic.jpg')
+        .expect(200);
+      const { image, blurImage } = withImage.body as Body;
+
+      await request(server)
+        .delete(`/cases/${String(body.slug)}/background`)
+        .set(...adminAuth())
+        .expect(404);
+
+      const after = await patch(body.slug, {}).expect(200);
+      expect(after.body).toMatchObject({ image, blurImage });
+      expect(
+        storage.has(String(image).replace(/^https:\/\/storage\.test\//, '')),
+      ).toBe(true);
     });
   });
 });

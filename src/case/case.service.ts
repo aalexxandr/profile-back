@@ -9,20 +9,18 @@ import { ImageProcessingService } from '../image/image-processing.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import {
-  IMAGE_SLOTS,
   PUBLISH_NEEDS_ALL_LANGUAGES,
   SUPPORTED_LOCALES,
 } from './case.constants';
 import {
   CaseFullView,
-  CaseImageSlot,
   CaseRow,
   CaseText,
   CaseView,
   CaseWithTranslations,
   Locale,
 } from './case.types';
-import { pictureColumns, pictureKey } from './case-image.util';
+import { pictureKey } from './case-image.util';
 import {
   canBePublished,
   isCompleteText,
@@ -181,58 +179,32 @@ export class CaseService {
   async deleteCase(slug: string): Promise<void> {
     const row = await this.prismaService.cases.whereUnique({ slug }).delete();
     if (!row) throw new NotFoundException('Case not found');
-    for (const key of [row.imageKey, row.backgroundImageKey]) {
-      if (key) await this.removeObject(key);
-    }
-  }
-
-  /** Sets or replaces the picture of a case. */
-  setImage(slug: string, file: Buffer): Promise<CaseFullView> {
-    return this.setPicture(slug, file, 'image');
-  }
-
-  /** Clears the picture; repeating it on a case without one is a no-op. */
-  removeImage(slug: string): Promise<void> {
-    return this.removePicture(slug, 'image');
-  }
-
-  /** Sets or replaces the background of a case; the picture is not touched. */
-  setBackground(slug: string, file: Buffer): Promise<CaseFullView> {
-    return this.setPicture(slug, file, 'background');
-  }
-
-  /** Clears the background; repeating it on a case without one is a no-op. */
-  removeBackground(slug: string): Promise<void> {
-    return this.removePicture(slug, 'background');
+    if (row.imageKey) await this.removeObject(row.imageKey);
   }
 
   /**
-   * Replaces one picture of a case. The new object is stored and the row saved
-   * before the previous object is removed, so a failure never leaves the case
-   * pointing at nothing.
+   * Sets or replaces the picture of a case. The new object is stored and the
+   * row saved before the previous object is removed, so a failure never leaves
+   * the case pointing at nothing.
    */
-  private async setPicture(
-    slug: string,
-    file: Buffer,
-    slot: CaseImageSlot,
-  ): Promise<CaseFullView> {
+  async setImage(slug: string, file: Buffer): Promise<CaseFullView> {
     const current = await this.prismaService.cases.first({ slug });
     if (!current) throw new NotFoundException('Case not found');
-    const currentKey = current[IMAGE_SLOTS[slot].keyColumn];
+    const currentKey = current.imageKey;
 
     const { image, blur } = await this.imageProcessingService.process(file);
     // read before any side effect, so a failure here leaves storage untouched
     const translations = await this.prismaService.caseTranslations
       .where({ caseSlug: slug })
       .all();
-    const key = pictureKey(slug, slot, image);
+    const key = pictureKey(slug, image);
     await this.storageService.put(key, image, 'image/webp');
 
     let updated: CaseRow | null;
     try {
       updated = await this.prismaService.cases
         .whereUnique({ slug })
-        .update(pictureColumns(slot, key, blur));
+        .update({ imageKey: key, blurImage: blur });
     } catch (error) {
       await this.discardNewObject(key, currentKey);
       throw error;
@@ -246,18 +218,16 @@ export class CaseService {
     return this.toAdminView(updated, textsByLocale(translations));
   }
 
-  private async removePicture(
-    slug: string,
-    slot: CaseImageSlot,
-  ): Promise<void> {
+  /** Clears the picture; repeating it on a case without one is a no-op. */
+  async removeImage(slug: string): Promise<void> {
     const current = await this.prismaService.cases.first({ slug });
     if (!current) throw new NotFoundException('Case not found');
-    const currentKey = current[IMAGE_SLOTS[slot].keyColumn];
+    const currentKey = current.imageKey;
     if (!currentKey) return;
 
     const updated = await this.prismaService.cases
       .whereUnique({ slug })
-      .update(pictureColumns(slot, null, null));
+      .update({ imageKey: null, blurImage: null });
     if (!updated) throw new NotFoundException('Case not found');
 
     await this.removeObject(currentKey);
@@ -297,7 +267,6 @@ export class CaseService {
       ...pickText(translation),
       locale: translation.locale,
       image: this.imageUrl(caseRow.imageKey),
-      backgroundImage: this.imageUrl(caseRow.backgroundImageKey),
     };
   }
 
@@ -309,7 +278,6 @@ export class CaseService {
     return {
       ...row,
       image: this.imageUrl(row.imageKey),
-      backgroundImage: this.imageUrl(row.backgroundImageKey),
       translations: toTranslationMap(texts),
     };
   }
