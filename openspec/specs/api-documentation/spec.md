@@ -68,7 +68,7 @@ The schemas of the `POST /cases` and `PATCH /cases/{slug}` request bodies SHALL 
 
 ### Requirement: Describe error responses
 
-Every operation SHALL document the error statuses it can return, each with the shared error schema `ErrorResponseDto` that has the properties `status`, `message`, `timestamp` and `path`: `POST /cases` documents `400`, `401` and `409`, `GET /cases/{slug}` documents `404`, `PATCH /cases/{slug}` documents `400`, `401` and `404`, `DELETE /cases/{slug}` documents `401` and `404`, `PUT /cases/{slug}/image` documents `400`, `401`, `404` and `413`, and `DELETE /cases/{slug}/image` documents `401` and `404`. `GET /cases` and `GET /cases/{slug}` MUST NOT document `401`.
+Every operation SHALL document the error statuses it can return, each with the shared error schema `ErrorResponseDto` that has the properties `status`, `message`, `timestamp` and `path`: `POST /cases` documents `400`, `401`, `409` and `503`, `GET /cases` documents `503`, `GET /cases/{slug}` documents `404` and `503`, `PATCH /cases/{slug}` documents `400`, `401`, `404` and `503`, `DELETE /cases/{slug}` documents `401`, `404` and `503`, `PUT /cases/{slug}/image` documents `400`, `401`, `404`, `413`, `503` and `504`, and `DELETE /cases/{slug}/image` documents `401`, `404` and `503`. `GET /cases` and `GET /cases/{slug}` MUST NOT document `401`.
 
 #### Scenario: Error statuses are documented per operation
 
@@ -79,6 +79,12 @@ Every operation SHALL document the error statuses it can return, each with the s
 
 - **WHEN** a client requests `GET /docs-json`
 - **THEN** `ErrorResponseDto` has the properties `status`, `message`, `timestamp` and `path`
+
+#### Scenario: Timeout statuses are described
+
+- **WHEN** a client requests `GET /docs-json`
+- **THEN** every operation under `/cases` documents `503` with a non-empty `description`
+- **AND** `PUT /cases/{slug}/image` and `PUT /cases/{slug}/background` document `504` with a non-empty `description`, and no other operation documents `504`
 
 ### Requirement: Describe the image upload
 
@@ -180,7 +186,7 @@ The document SHALL describe the `lang` query parameter of the public reads and t
 
 ### Requirement: Describe the background upload
 
-`PUT /cases/{slug}/background` SHALL be documented with a `multipart/form-data` request body whose schema has the required binary property `file` with a description that states the accepted formats and the 10 MB limit, and with a `200` response that references the full view schema. `DELETE /cases/{slug}/background` SHALL be documented with a `204` response. Both operations MUST document `400`/`413` (upload only), `401` and `404` with the shared error schema and carry the `admin-token` security requirement.
+`PUT /cases/{slug}/background` SHALL be documented with a `multipart/form-data` request body whose schema has the required binary property `file` with a description that states the accepted formats and the 10 MB limit, and with a `200` response that references the full view schema. `DELETE /cases/{slug}/background` SHALL be documented with a `204` response. Both operations MUST document `400`/`413`/`504` (upload only), `401`, `404` and `503` with the shared error schema and carry the `admin-token` security requirement.
 
 #### Scenario: Background upload body is multipart with a binary file
 
@@ -191,7 +197,7 @@ The document SHALL describe the `lang` query parameter of the public reads and t
 
 - **WHEN** a client requests `GET /docs-json`
 - **THEN** `PUT /cases/{slug}/background` documents `200` referencing `CaseFullDto` and `DELETE /cases/{slug}/background` documents `204`
-- **AND** both operations document `401` and `404`, and the upload documents `400` and `413`
+- **AND** both operations document `401`, `404` and `503`, and the upload documents `400`, `413` and `504`
 
 ### Requirement: Describe the background fields in responses
 
