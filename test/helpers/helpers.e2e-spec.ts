@@ -24,6 +24,20 @@ describe('InMemoryStorage', () => {
     expect(storage.has('k')).toBe(false);
   });
 
+  it('fails the next upload with the given error once, then stores again', async () => {
+    const storage = new InMemoryStorage();
+    const failure = new Error('timed out');
+    storage.failNextPut(failure);
+
+    await expect(storage.put('k', Buffer.alloc(1), 'image/webp')).rejects.toBe(
+      failure,
+    );
+    expect(storage.has('k')).toBe(false);
+
+    await storage.put('k', Buffer.alloc(1), 'image/webp');
+    expect(storage.has('k')).toBe(true);
+  });
+
   it('builds an absolute public URL like the real service', () => {
     expect(
       new InMemoryStorage('https://cdn.test').publicUrl('cases/a.webp'),

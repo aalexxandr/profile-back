@@ -32,6 +32,10 @@ import { Public } from '../auth/public.decorator';
 import { ApiAdminAuth } from '../common/swagger/api-admin-auth.decorator';
 import { ApiErrorResponse } from '../common/swagger/api-error-response.decorator';
 import {
+  REQUEST_TIMEOUT_DOC,
+  STORAGE_TIMEOUT_DOC,
+} from '../common/swagger/swagger.constants';
+import {
   BACKGROUND_UPLOAD_BODY,
   DETAIL,
   FULL,
@@ -70,6 +74,7 @@ export class CaseController {
     'Validation failed: a field is missing, malformed or unknown, `translations.ru` is missing, or `published: true` was sent without an English translation',
   )
   @ApiErrorResponse(409, 'A case with this slug already exists')
+  @ApiErrorResponse(503, REQUEST_TIMEOUT_DOC)
   @SerializeOptions(FULL)
   createCase(@Body() caseDataDto: CreateCaseDto) {
     return this.caseService.createCase(caseDataDto);
@@ -87,6 +92,7 @@ export class CaseController {
     type: [CaseListItemDto],
     description: 'Published cases; an empty array when there are none',
   })
+  @ApiErrorResponse(503, REQUEST_TIMEOUT_DOC)
   @SerializeOptions(LIST_ITEM)
   findAll(@Query('lang') lang?: string) {
     return this.caseService.findAll(resolveLocale(lang));
@@ -103,6 +109,7 @@ export class CaseController {
   @ApiQuery(LANG_QUERY)
   @ApiOkResponse({ type: CaseDetailDto, description: 'The published case' })
   @ApiErrorResponse(404, 'Unknown or unpublished case')
+  @ApiErrorResponse(503, REQUEST_TIMEOUT_DOC)
   @SerializeOptions(DETAIL)
   findBySlug(@Param('slug') slug: string, @Query('lang') lang?: string) {
     return this.caseService.findBySlug(slug, resolveLocale(lang));
@@ -125,6 +132,7 @@ export class CaseController {
     'Validation failed: a field is malformed, unknown, or the slug was sent; a new language was sent incomplete; or the case would be published without an English translation',
   )
   @ApiErrorResponse(404, 'Unknown case')
+  @ApiErrorResponse(503, REQUEST_TIMEOUT_DOC)
   @SerializeOptions(FULL)
   updateCase(@Param('slug') slug: string, @Body() caseDataDto: UpdateCaseDto) {
     return this.caseService.updateCase(slug, caseDataDto);
@@ -141,6 +149,7 @@ export class CaseController {
   @ApiParam(SLUG_PARAM)
   @ApiNoContentResponse({ description: 'The case was deleted' })
   @ApiErrorResponse(404, 'Unknown case')
+  @ApiErrorResponse(503, REQUEST_TIMEOUT_DOC)
   deleteCase(@Param('slug') slug: string) {
     return this.caseService.deleteCase(slug);
   }
@@ -155,7 +164,7 @@ export class CaseController {
   @ApiOperation({
     summary: 'Upload the picture of a case',
     description:
-      'Admin only. Sets or replaces the picture of a case, drafts included. Send one file in the multipart field `file`. The server re-encodes it to a real WebP (at most 1920 px wide, never enlarged, EXIF orientation applied, metadata removed) and generates the blurred placeholder itself, so only one version is ever uploaded. The response is the case with the new `image` URL and `blurImage` data URI and the text of every language. A previous picture is removed from the storage. Uploading the same file again changes nothing.',
+      'Admin only. Sets or replaces the picture of a case, drafts included. Send one file in the multipart field `file`. The server re-encodes it to a real WebP (at most 1920 px wide, never enlarged, EXIF orientation applied, metadata removed) and generates the blurred placeholder itself, so only one version is ever uploaded. The response is the case with the new `image` URL and `blurImage` data URI and the text of every language. A previous picture is removed from the storage. Uploading the same file again changes nothing. If the storage does not respond within 10 seconds the answer is 504 and the case stays unchanged.',
   })
   @ApiParam(SLUG_PARAM)
   @ApiOkResponse({
@@ -168,6 +177,8 @@ export class CaseController {
   )
   @ApiErrorResponse(404, 'Unknown case')
   @ApiErrorResponse(413, 'The file is larger than 10 MB')
+  @ApiErrorResponse(503, REQUEST_TIMEOUT_DOC)
+  @ApiErrorResponse(504, STORAGE_TIMEOUT_DOC)
   @SerializeOptions(FULL)
   setImage(
     @Param('slug') slug: string,
@@ -192,6 +203,7 @@ export class CaseController {
   @ApiParam(SLUG_PARAM)
   @ApiNoContentResponse({ description: 'The case has no picture now' })
   @ApiErrorResponse(404, 'Unknown case')
+  @ApiErrorResponse(503, REQUEST_TIMEOUT_DOC)
   removeImage(@Param('slug') slug: string) {
     return this.caseService.removeImage(slug);
   }
@@ -206,7 +218,7 @@ export class CaseController {
   @ApiOperation({
     summary: 'Upload the background of a case',
     description:
-      'Admin only. Sets or replaces the background picture of a case, drafts included. It is independent of the case picture (`PUT /cases/{slug}/image`), which stays unchanged. Send one file in the multipart field `file`. The server re-encodes it to a real WebP (at most 1920 px wide, never enlarged, EXIF orientation applied, metadata removed) and generates the blurred placeholder itself, so only one version is ever uploaded. The response is the case with the new `backgroundImage` URL and `backgroundBlurImage` data URI and the text of every language. A previous background is removed from the storage. Uploading the same file again changes nothing. The background is shown in the public detail view, not in the list.',
+      'Admin only. Sets or replaces the background picture of a case, drafts included. It is independent of the case picture (`PUT /cases/{slug}/image`), which stays unchanged. Send one file in the multipart field `file`. The server re-encodes it to a real WebP (at most 1920 px wide, never enlarged, EXIF orientation applied, metadata removed) and generates the blurred placeholder itself, so only one version is ever uploaded. The response is the case with the new `backgroundImage` URL and `backgroundBlurImage` data URI and the text of every language. A previous background is removed from the storage. Uploading the same file again changes nothing. If the storage does not respond within 10 seconds the answer is 504 and the case stays unchanged. The background is shown in the public detail view, not in the list.',
   })
   @ApiParam(SLUG_PARAM)
   @ApiOkResponse({
@@ -219,6 +231,8 @@ export class CaseController {
   )
   @ApiErrorResponse(404, 'Unknown case')
   @ApiErrorResponse(413, 'The file is larger than 10 MB')
+  @ApiErrorResponse(503, REQUEST_TIMEOUT_DOC)
+  @ApiErrorResponse(504, STORAGE_TIMEOUT_DOC)
   @SerializeOptions(FULL)
   setBackground(
     @Param('slug') slug: string,
@@ -243,6 +257,7 @@ export class CaseController {
   @ApiParam(SLUG_PARAM)
   @ApiNoContentResponse({ description: 'The case has no background now' })
   @ApiErrorResponse(404, 'Unknown case')
+  @ApiErrorResponse(503, REQUEST_TIMEOUT_DOC)
   removeBackground(@Param('slug') slug: string) {
     return this.caseService.removeBackground(slug);
   }

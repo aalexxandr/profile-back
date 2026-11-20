@@ -16,17 +16,24 @@ import { InMemoryStorage } from './in-memory-storage';
  * `StorageService` всегда заменён на `InMemoryStorage`, чтобы тесты никогда
  * не трогали настоящий бакет (даже если в окружении есть ключи S3). Достать
  * его для проверок: `app.get(StorageService) as unknown as InMemoryStorage`.
+ *
+ * `overrides` подменяет значения других провайдеров, например короткий
+ * `REQUEST_TIMEOUT`: `[{ provide: REQUEST_TIMEOUT, useValue: 50 }]`.
  */
 export async function createTestApp(
   metadata: ModuleMetadata,
   storage: InMemoryStorage = new InMemoryStorage(),
+  overrides: { provide: unknown; useValue: unknown }[] = [],
 ): Promise<INestApplication> {
   assertSafeDatabase(process.env.POSTGRES_URI);
 
-  const moduleRef = await Test.createTestingModule(metadata)
+  const builder = Test.createTestingModule(metadata)
     .overrideProvider(StorageService)
-    .useValue(storage)
-    .compile();
+    .useValue(storage);
+  for (const { provide, useValue } of overrides) {
+    builder.overrideProvider(provide).useValue(useValue);
+  }
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication();
   configureApp(app);
   await app.init();
